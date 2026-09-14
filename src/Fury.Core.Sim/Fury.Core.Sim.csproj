@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Fury.Core.Math\Fury.Core.Math.csproj" />
+    <ProjectReference Include="..\Fury.Core.Memory\Fury.Core.Memory.csproj" />
     <ProjectReference Include="..\Fury.Core.Observability\Fury.Core.Observability.csproj" />
   </ItemGroup>
 

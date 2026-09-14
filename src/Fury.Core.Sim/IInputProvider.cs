@@ -6,7 +6,7 @@ namespace Fury.Core.Sim;
 /// </summary>
 public readonly record struct InputState(ushort Bits)
 {
-    public bool IsSet(InputButton flag) => (Bits & (ushort)flag) != 0;
+    public bool IsSet(InputButton button) => (Bits & (ushort)button) != 0;
 }
 
 [Flags]
@@ -27,6 +27,17 @@ public enum InputButton : ushort
     Macro2 = 1 << 11,
 }
 
+/// <summary>Rich read-only projection of the fight exposed to input providers (brains, netcode).</summary>
+public readonly record struct FightView(
+    int Frame,
+    int MyHealth,
+    int OpponentHealth,
+    int MyStateId,
+    int OpponentStateId,
+    int OpponentMoveIndex,
+    int DistanceRaw,
+    int MyFacing);
+
 /// <summary>
 /// Port: anything that can produce inputs for the sim — keyboard, pad, netcode, CPU brain,
 /// replay script. The sim never knows which adapter is feeding it.
@@ -36,10 +47,3 @@ public interface IInputProvider
     /// <summary>Inputs for the given frame. Must be deterministic given (frame, fight state).</summary>
     InputState Poll(int frame, in FightView view);
 }
-
-/// <summary>Read-only projection of the fight exposed to input providers (IA needs positions/HP).</summary>
-public readonly record struct FightView(
-    int Frame,
-    int LocalHealth,
-    int OpponentHealth,
-    int DistanceRaw);

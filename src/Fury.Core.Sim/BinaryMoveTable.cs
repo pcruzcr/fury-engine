@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 
-namespace Fury.Core.Data;
+namespace Fury.Core.Sim;
 
 /// <summary>
 /// One compiled move: a row of the binary frame-data table. All timings are sim frames.
@@ -12,21 +12,26 @@ public readonly record struct MoveEntry(
     int RecoveryFrames,
     int Damage,
     int HitstopFrames,
-    int PushbackRaw);
+    int PushbackRaw,
+    int ReachRaw,
+    int BoxHalfHeightRaw,
+    int BoxCenterYRaw);
 
 /// <summary>
 /// Parser for the FMT1 binary frame-data table (ADR-003): Little-Endian explicit, rigorous
 /// structural validation — magic, version, exact expected length. Any deviation is a hard
 /// failure, never a silent read. The FSM reads transitions from these tables in hot path;
 /// changing frame data requires regenerating the binary, not recompiling C#.
-/// Layout: magic "FMT1" | version:4 | moveCount:4 | per move: 7 ints (28 B).
+/// Layout: magic "FMT1" | version:4 | moveCount:4 | per move: 10 ints (40 B):
+/// nameHash, startup, active, recovery, damage, hitstop, pushbackRaw, reachRaw,
+/// boxHalfHeightRaw, boxCenterYRaw (all Q16.16 raws where dimensional).
 /// </summary>
 public sealed class BinaryMoveTable
 {
     public const int Version = 1;
     public const int HeaderBytes = 12;
-    public const int BytesPerMove = 28;
-    public const int IntsPerMove = 7;
+    public const int BytesPerMove = 40;
+    public const int IntsPerMove = 10;
 
     private readonly int[] _words;
     private readonly int _moveCount;
@@ -66,7 +71,7 @@ public sealed class BinaryMoveTable
     {
         if ((uint)index >= (uint)_moveCount) throw new ArgumentOutOfRangeException(nameof(index));
         int b = index * IntsPerMove;
-        return new MoveEntry(_words[b], _words[b + 1], _words[b + 2], _words[b + 3], _words[b + 4], _words[b + 5], _words[b + 6]);
+        return new MoveEntry(_words[b], _words[b + 1], _words[b + 2], _words[b + 3], _words[b + 4], _words[b + 5], _words[b + 6], _words[b + 7], _words[b + 8], _words[b + 9]);
     }
 
     /// <summary>Linear scan by xxHash-like int name hash (authoring pipeline stores the hash, not the string).</summary>
@@ -110,6 +115,9 @@ public static class BinaryMoveTableWriter
             BinaryPrimitives.WriteInt32LittleEndian(target[16..], m.Damage);
             BinaryPrimitives.WriteInt32LittleEndian(target[20..], m.HitstopFrames);
             BinaryPrimitives.WriteInt32LittleEndian(target[24..], m.PushbackRaw);
+            BinaryPrimitives.WriteInt32LittleEndian(target[28..], m.ReachRaw);
+            BinaryPrimitives.WriteInt32LittleEndian(target[32..], m.BoxHalfHeightRaw);
+            BinaryPrimitives.WriteInt32LittleEndian(target[36..], m.BoxCenterYRaw);
         }
         return blob;
     }

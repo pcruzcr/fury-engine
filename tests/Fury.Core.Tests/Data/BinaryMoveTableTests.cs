@@ -1,4 +1,4 @@
-using Fury.Core.Data;
+using Fury.Core.Sim;
 using Xunit;
 
 namespace Fury.Core.Tests.Data;
@@ -12,7 +12,10 @@ public class BinaryMoveTableTests
         RecoveryFrames: 11,
         Damage: 80,
         HitstopFrames: 6,
-        PushbackRaw: 0x28000); // Fp 2.5
+        PushbackRaw: 0x28000, // Fp 2.5
+        ReachRaw: 0x60000,    // Fp 6.0
+        BoxHalfHeightRaw: 0x28000,
+        BoxCenterYRaw: 0x3C000);
 
     [Fact]
     public void Write_Parse_Roundtrips()
