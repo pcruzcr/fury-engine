@@ -18,9 +18,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Fury.Core.Math\Fury.Core.Math.csproj" />
+    <ProjectReference Include="..\..\src\Fury.Core.Memory\Fury.Core.Memory.csproj" />
     <ProjectReference Include="..\..\src\Fury.Core.Sim\Fury.Core.Sim.csproj" />
     <ProjectReference Include="..\..\src\Fury.Core.Data\Fury.Core.Data.csproj" />
     <ProjectReference Include="..\..\src\Fury.Core.Rollback\Fury.Core.Rollback.csproj" />
+    <ProjectReference Include="..\..\src\Fury.Core.Net\Fury.Core.Net.csproj" />
     <ProjectReference Include="..\..\src\Fury.Core.Replay\Fury.Core.Replay.csproj" />
     <ProjectReference Include="..\..\src\Fury.Core.Observability\Fury.Core.Observability.csproj" />
   </ItemGroup>
