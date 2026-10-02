@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Engine-free authoring models (move tables, stages) shared by in-game tools, CLI and tests. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Fury.Core.Data\Fury.Core.Data.csproj" />
+  </ItemGroup>
+
+</Project>

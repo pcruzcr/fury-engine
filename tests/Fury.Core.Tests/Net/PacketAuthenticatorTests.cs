@@ -32,11 +32,11 @@ public class PacketAuthenticatorTests
         var packet = new byte[PacketAuthenticator.EncodedLength(payload.Length)];
         auth.Stamp(payload, 1, packet);
 
-        packet[1] ^= 0xFF; // flip one payload byte
+        packet[1] ^= 0xFF;
         Assert.False(auth.Verify(packet, new byte[payload.Length], out _));
 
         packet[1] ^= 0xFF;
-        packet[^1] ^= 0x01; // flip one MAC byte
+        packet[^1] ^= 0x01;
         Assert.False(auth.Verify(packet, new byte[payload.Length], out _));
     }
 
@@ -58,12 +58,12 @@ public class PacketAuthenticatorTests
     {
         var guard = new PacketReplayGuard();
         Assert.True(guard.Accept(1));
-        Assert.False(guard.Accept(1), "duplicate must drop");
+        Assert.False(guard.Accept(1));
         Assert.True(guard.Accept(2));
         Assert.True(guard.Accept(5));
-        Assert.False(guard.Accept(2), "old within window must drop");
-        Assert.True(guard.Accept(80), "jump beyond window resyncs");
-        Assert.False(guard.Accept(1), "pre-window packet must drop");
-        Assert.False(guard.Accept(0), "zero sequence invalid");
+        Assert.False(guard.Accept(2));
+        Assert.True(guard.Accept(80));
+        Assert.False(guard.Accept(1));
+        Assert.False(guard.Accept(0));
     }
 }

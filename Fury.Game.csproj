@@ -1,0 +1,24 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>Fury.Game</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/Fury.Game/**/*.cs" Exclude="**/bin/**;**/obj/**;**/.godot/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="src/Fury.Core.Authoring/Fury.Core.Authoring.csproj" />
+    <ProjectReference Include="src/Fury.Core.Data/Fury.Core.Data.csproj" />
+    <ProjectReference Include="src/Fury.Core.Math/Fury.Core.Math.csproj" />
+    <ProjectReference Include="src/Fury.Core.Net/Fury.Core.Net.csproj" />
+    <ProjectReference Include="src/Fury.Core.Replay/Fury.Core.Replay.csproj" />
+    <ProjectReference Include="src/Fury.Core.Rollback/Fury.Core.Rollback.csproj" />
+    <ProjectReference Include="src/Fury.Core.Sim/Fury.Core.Sim.csproj" />
+  </ItemGroup>
+</Project>

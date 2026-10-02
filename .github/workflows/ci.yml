@@ -4,12 +4,21 @@ on:
   push:
     branches: [master, main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # Pure engine: build, unit tests and the headless determinism certification on every desktop OS.
+  # The certification compares against hashes committed in cert/expected_hashes.txt, so a platform whose
+  # arithmetic, SIMD or hashing differs from the others fails here.
   build-test:
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -19,4 +28,49 @@ jobs:
       - name: Build
         run: dotnet build FuryEngine.sln -c Release --nologo
       - name: Test
-        run: dotnet test FuryEngine.sln -c Release --no-build --nologo
+        run: dotnet test FuryEngine.sln -c Release --no-build --nologo --logger "trx;LogFileName=results.trx"
+      - name: Headless certification
+        run: dotnet run --project cert -c Release --no-build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: certification-${{ matrix.os }}
+          path: certification_results/
+
+  # Native AOT analysis of the engine core (iOS and consoles forbid JIT): warnings are errors.
+  aot-analysis:
+    runs-on: ubuntu-latest
+    continue-on-error: true # validated locally up to native codegen; the Linux link step is not verified yet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Publish core as Native AOT (analysis + compile)
+        run: dotnet publish cert/cert.csproj -c Release -r linux-x64 -p:PublishAot=true -o aot-out
+      - name: Run the AOT binary (determinism must hold without the JIT)
+        run: ./aot-out/cert
+
+  # Godot integration: build with the editor's own pipeline, load every scene, and play a real
+  # two-process netplay match. Kept non-blocking until the Godot version/action pin is validated on the CI runner.
+  godot-smoke:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: true
+          include-templates: false
+      - name: Scene smoke test
+        run: tools/godot-smoke.sh
+        env:
+          GODOT: godot
+      - name: Online (two instances) smoke test
+        run: tools/godot-online-smoke.sh
+        env:
+          GODOT: godot

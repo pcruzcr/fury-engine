@@ -5,9 +5,11 @@ namespace Fury.Core.Net;
 /// <summary>
 /// Per-packet authentication for the P2P netcode: each datagram carries its sequence
 /// (Little-Endian) and an HMAC-SHA256 over payload || sequence. Verification uses constant
-/// time comparison. Session keys are 256-bit, derived per session during handshake
-/// (HKDF, F2) — never a static key embedded in the binary (ADR-004).
-/// Wire layout: [payload…][seq:4 LE][mac:32].
+/// time comparison. Session keys are 256-bit, derived per session during the handshake
+/// (HKDF) and never embedded in the binary (ADR-004).
+/// Wire layout: [payload...][seq:4 LE][mac:32].
+/// Stateless one-shot HMAC: safe to call from the game thread and the receive thread at once
+/// (the previous shared HMACSHA256 instance was not thread-safe), allocation-free.
 /// </summary>
 public sealed class PacketAuthenticator : IDisposable
 {
@@ -15,7 +17,7 @@ public sealed class PacketAuthenticator : IDisposable
     public const int MacBytes = 32;
     public const int MinKeyBytes = 32;
 
-    private readonly HMACSHA256 _hmac;
+    private readonly byte[] _key;
 
     public PacketAuthenticator(ReadOnlySpan<byte> sessionKey)
     {
@@ -23,7 +25,7 @@ public sealed class PacketAuthenticator : IDisposable
         {
             throw new ArgumentOutOfRangeException(nameof(sessionKey), $"Session keys must be >= {MinKeyBytes} bytes.");
         }
-        _hmac = new HMACSHA256(sessionKey.ToArray());
+        _key = sessionKey.ToArray();
     }
 
     public static int EncodedLength(int payloadLength) => payloadLength + SequenceBytes + MacBytes;
@@ -35,12 +37,12 @@ public sealed class PacketAuthenticator : IDisposable
         payload.CopyTo(dest);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(dest[payload.Length..], sequence);
         var macSpan = dest[(payload.Length + SequenceBytes)..];
-        _hmac.TryComputeHash(dest[..(payload.Length + SequenceBytes)], macSpan, out _);
+        HMACSHA256.TryHashData(_key, dest[..(payload.Length + SequenceBytes)], macSpan, out _);
     }
 
     /// <summary>
     /// Verifies MAC and extracts the payload + sequence. Returns false on any tamper,
-    /// truncation or malformed packet — callers must drop the datagram without touching sim state.
+    /// truncation or malformed packet; callers must drop the datagram without touching sim state.
     /// </summary>
     public bool Verify(ReadOnlySpan<byte> packet, Span<byte> payloadOut, out uint sequence)
     {
@@ -54,9 +56,10 @@ public sealed class PacketAuthenticator : IDisposable
         sequence = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(packet[payloadLength..]);
 
         Span<byte> expected = stackalloc byte[MacBytes];
-        _hmac.TryComputeHash(packet[..(payloadLength + SequenceBytes)], expected, out _);
+        HMACSHA256.TryHashData(_key, packet[..(payloadLength + SequenceBytes)], expected, out _);
         if (!CryptographicOperations.FixedTimeEquals(expected, packet[(payloadLength + SequenceBytes)..]))
         {
+            sequence = 0;
             return false;
         }
 
@@ -66,7 +69,7 @@ public sealed class PacketAuthenticator : IDisposable
 
     public void Dispose()
     {
-        _hmac.Dispose();
+        CryptographicOperations.ZeroMemory(_key);
         GC.SuppressFinalize(this);
     }
 }
@@ -74,6 +77,7 @@ public sealed class PacketAuthenticator : IDisposable
 /// <summary>
 /// Sliding replay window (64 sequences) around the highest in-order sequence seen.
 /// Drops duplicates and packets older than the window before they can reach the sim.
+/// Not thread-safe: owned by the receive thread.
 /// </summary>
 public sealed class PacketReplayGuard
 {

@@ -9,17 +9,18 @@ public class FightSimulationTests
 {
     private static FightSimulation CreateSim() => new(GlenData.Create(), KiraData.Create());
 
-    /// <summary>Walks P1 toward P2 until pushboxes touch, then returns (fighter is in range).</summary>
+    /// <summary>Walks P1 toward P2 until the gap is short enough for a light normal, then lets one neutral frame pass.</summary>
     private static void WalkIntoRange(FightSimulation sim)
     {
         var walk = new InputState((ushort)InputButton.Right);
-        for (int f = 0; f < 10; f++)
+        long closeEnough = Fp.FromRatio(5, 2).Raw;
+        for (int f = 0; f < 240 && (sim.State.GetX(1) - sim.State.GetX(0)).Raw > closeEnough; f++)
         {
             sim.Step(walk, new InputState(0));
         }
+        sim.Step(new InputState(0), new InputState(0));
     }
 
-    /// <summary>Presses an attack until it connects or frames run out; returns health dropped.</summary>
     private static int AttackUntilHit(FightSimulation sim, InputButton button, int maxFrames)
     {
         int before = sim.State.GetHealth(1);
@@ -80,7 +81,6 @@ public class FightSimulationTests
     {
         var sim = CreateSim();
         var neutral = new InputState(0);
-        // Warmup (JIT + first-tick paths).
         for (int i = 0; i < 10; i++) sim.Step(neutral, neutral);
 
         long before = GC.GetAllocatedBytesForCurrentThread();
@@ -136,7 +136,7 @@ public class FightSimulationTests
         WalkIntoRange(sim);
         int dropped = AttackUntilHit(sim, InputButton.Heavy, 30);
 
-        Assert.True(dropped > 0, "heavy in range must damage the opponent");
+        Assert.True(dropped > 0);
     }
 
     [Fact]
@@ -145,20 +145,19 @@ public class FightSimulationTests
         var sim = CreateSim();
         WalkIntoRange(sim);
         var cfg = FightConfig.Default();
-        int chip = 110 * cfg.ChipDamagePercent / 100; // Glen StandHeavy chip
+        int chip = 110 * cfg.ChipDamagePercent / 100;
 
         int openHealth = sim.State.GetHealth(1);
-        // P1 attacks heavy; P2 holds away-from-attacker (Right) to block.
         var attack = new InputState((ushort)InputButton.Heavy);
-        var block = new InputState((ushort)InputButton.Right); // away from attacker (P1 is on the left)
+        var block = new InputState((ushort)InputButton.Right);
         for (int f = 0; f < 30; f++)
         {
             sim.Step(f == 0 ? attack : new InputState(0), block);
         }
         int dropped = openHealth - sim.State.GetHealth(1);
 
-        Assert.True(dropped > 0, "block should still chip");
-        Assert.True(dropped <= chip, $"dropped {dropped} must be chip-only ({chip})");
+        Assert.True(dropped > 0);
+        Assert.True(dropped <= chip);
     }
 
     [Fact]
@@ -169,8 +168,8 @@ public class FightSimulationTests
         Assert.Equal(0, sim.State.GetExMeter(0));
 
         int dropped = AttackUntilHit(sim, InputButton.Light, 30);
-        Assert.True(dropped > 0, "light in range must connect");
-        Assert.True(sim.State.GetExMeter(0) > 0, "attacker should bank EX on hits");
+        Assert.True(dropped > 0);
+        Assert.True(sim.State.GetExMeter(0) > 0);
     }
 
     [Fact]
@@ -181,10 +180,9 @@ public class FightSimulationTests
         Assert.False(sim.State.IsRaging(0));
         sim.State.SetHealth(0, 100);
 
-        // P1 lands a hit below the rage threshold: attacker-side unlock.
         AttackUntilHit(sim, InputButton.Heavy, 30);
 
-        Assert.True(sim.State.IsRaging(0), "acting below the health threshold should unlock rage");
+        Assert.True(sim.State.IsRaging(0));
     }
 
     [Fact]
@@ -235,8 +233,6 @@ public class FightSimulationTests
 
         Assert.Equal(60 * 30, sim.Frame);
         _ = final;
-        // 30 s of blind AI combat must involve real combat on both sides.
-        Assert.True(sim.State.GetHealth(0) < 1000 || sim.State.GetHealth(1) < 1000,
-            "AI-vs-AI should land hits");
+        Assert.True(sim.State.GetHealth(0) < 1000 || sim.State.GetHealth(1) < 1000);
     }
 }

@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Fury.Core.Math\Fury.Core.Math.csproj" />
-    <ProjectReference Include="..\Fury.Core.Sim\Fury.Core.Sim.csproj" />
   </ItemGroup>
 
 </Project>

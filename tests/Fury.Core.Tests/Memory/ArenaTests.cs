@@ -31,8 +31,8 @@ public class ArenaTests
     public void Alloc_AlignedTo8Bytes()
     {
         var arena = new Arena(64);
-        arena.Alloc<Payload>(1); // 8 bytes
-        arena.Alloc<Payload>(1); // next slice must start at offset >= 8
+        arena.Alloc<Payload>(1);
+        arena.Alloc<Payload>(1);
         Assert.Equal(16, arena.UsedBytes);
     }
 
@@ -40,7 +40,7 @@ public class ArenaTests
     public void ExhaustedArena_Throws()
     {
         var arena = new Arena(16);
-        arena.Alloc<Payload>(2); // exactly full
+        arena.Alloc<Payload>(2);
         Assert.Throws<InvalidOperationException>(() => arena.Alloc<Payload>(1));
     }
 
@@ -51,7 +51,7 @@ public class ArenaTests
         arena.Alloc<Payload>(10);
         arena.Reset();
         Assert.Equal(0, arena.UsedBytes);
-        arena.Alloc<Payload>(15); // now fits again
+        arena.Alloc<Payload>(15);
         Assert.Equal(15 * sizeof(int) * 2, arena.UsedBytes);
     }
 
@@ -61,8 +61,6 @@ public class ArenaTests
         var arena = new Arena(64);
         var slice = arena.Alloc<Payload>(2);
         slice.Span[1] = new Payload { A = 42, B = 0 };
-
-        // A fresh Span over the same region observes the write: view semantics, no copies.
         Assert.Equal(42, slice.Span[1].A);
     }
 }

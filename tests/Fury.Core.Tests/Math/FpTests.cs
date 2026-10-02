@@ -24,8 +24,8 @@ public class FpTests
     [Fact]
     public void Multiply_IsQ16Dot16()
     {
-        var a = Fp.FromRatio(3, 2);   // 1.5
-        var b = Fp.FromRatio(2, 1);   // 2.0
+        var a = Fp.FromRatio(3, 2);
+        var b = Fp.FromRatio(2, 1);
         Assert.Equal(Fp.FromInt(3), a * b);
     }
 
@@ -36,8 +36,7 @@ public class FpTests
         var b = Fp.FromRatio(11, 5);
         var q = a / b;
         var recovered = q * b;
-        // Within one ulp of Q16.16 after a round trip.
-        Assert.True(Fp.Abs(recovered - a).Raw <= 2, $"roundtrip drifted: {recovered} vs {a}");
+        Assert.True(Fp.Abs(recovered - a).Raw <= 2);
     }
 
     [Fact]
@@ -51,7 +50,6 @@ public class FpTests
     [Fact]
     public void Overflow_Wraps_ByPolicy()
     {
-        // MaxValue + 1 wraps to MinValue: contract, not bug.
         var wrapped = Fp.MaxValue + Fp.FromRaw(1);
         Assert.Equal(Fp.MinValue.Raw, wrapped.Raw);
     }
@@ -106,7 +104,7 @@ public class XoshiroTests
             Assert.InRange(v, 0, 9);
             seen.Add(v);
         }
-        Assert.Equal(10, seen.Count); // all buckets hit: no gross bias
+        Assert.Equal(10, seen.Count);
     }
 }
 

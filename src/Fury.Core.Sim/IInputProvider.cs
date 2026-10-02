@@ -1,13 +1,10 @@
 namespace Fury.Core.Sim;
 
 /// <summary>
-/// Bit-packed per-frame input for one fighter. 16 bits: 6 attack buttons + directions.
+/// Bit-packed per-frame input for one fighter: 4 directions, 4 attack buttons, block/parry and 4 macro buttons.
 /// Equality is by value; it snapshots into replays and network packets verbatim.
 /// </summary>
-public readonly record struct InputState(ushort Bits)
-{
-    public bool IsSet(InputButton button) => (Bits & (ushort)button) != 0;
-}
+public readonly record struct InputState(ushort Bits);
 
 [Flags]
 public enum InputButton : ushort
@@ -25,18 +22,31 @@ public enum InputButton : ushort
     Parry = 1 << 9,
     Macro1 = 1 << 10,
     Macro2 = 1 << 11,
+
+    /// <summary>Activates the fighter power-up (arcana / transformation) when a module provides one.</summary>
+    Macro3 = 1 << 12,
+
+    /// <summary>Tags in the partner when a tag-team module is active.</summary>
+    Macro4 = 1 << 13,
 }
 
 /// <summary>Rich read-only projection of the fight exposed to input providers (brains, netcode).</summary>
 public readonly record struct FightView(
-    int Frame,
-    int MyHealth,
-    int OpponentHealth,
     int MyStateId,
     int OpponentStateId,
     int OpponentMoveIndex,
     int DistanceRaw,
-    int MyFacing);
+    int MyFacing)
+{
+    /// <summary>EX meter points of this fighter (lets a brain decide when a super is available).</summary>
+    public int MyExMeter { get; init; }
+
+    /// <summary>True while the opponent is airborne (jumping or launched).</summary>
+    public bool OpponentAirborne { get; init; }
+
+    /// <summary>True while the opponent has a projectile in flight.</summary>
+    public bool OpponentFireballLive { get; init; }
+}
 
 /// <summary>
 /// Port: anything that can produce inputs for the sim — keyboard, pad, netcode, CPU brain,

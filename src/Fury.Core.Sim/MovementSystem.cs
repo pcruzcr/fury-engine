@@ -1,25 +1,41 @@
+using Fury.Core.Data;
 using Fury.Core.Math;
 
 namespace Fury.Core.Sim;
 
 /// <summary>
-/// Phase 5 movement integration: walk velocities, jump arc, gravity, pushbox separation
-/// and stage clamping — all Fp, all deterministic. Facing auto-updates in grounded neutral.
+/// Phase 5 movement: ground control (walk, crouch, jump, dash, backdash), integration of velocities and
+/// gravity, projectile flight, pushbox separation and stage clamping. All Fp, all deterministic. Facing
+/// auto-updates in grounded neutral. Walking is relative to the facing (forward = toward the opponent): the
+/// old code walked along the world X axis, so player 2 (facing left) walked away from the key it held.
+/// Pushback from hits slides grounded fighters with friction (before this only airborne fighters were ever
+/// moved by it).
 /// </summary>
 public sealed class MovementSystem
 {
     private readonly FightConfig _cfg;
-    private readonly CharacterConfig[] _roster;
+    private readonly FighterRoster _roster;
+    private readonly SimEventSink _events;
+    private readonly ModuleHooks _hooks;
 
-    public MovementSystem(FightConfig cfg, CharacterConfig p1, CharacterConfig p2)
+    internal MovementSystem(FightConfig cfg, FighterRoster roster, SimEventSink events, ModuleHooks hooks)
     {
         _cfg = cfg;
-        _roster = [p1, p2];
+        _roster = roster;
+        _events = events;
+        _hooks = hooks;
     }
 
-    public CharacterConfig Data(int f) => _roster[f];
+    public CharacterConfig Data(int f) => _roster.Get(f);
 
-    /// <summary>Promotes neutral inputs into walk/crouch/jump states (before Integrate).</summary>
+    /// <summary>Scales a speed by the combined module percentage (speed buffs); exact integer math.</summary>
+    private Fp Scaled(int f, Fp speed)
+    {
+        int percent = _hooks.WalkSpeedPercent(f);
+        return percent == 100 ? speed : Fp.FromRaw((int)((long)speed.Raw * percent / 100));
+    }
+
+    /// <summary>Promotes neutral inputs into walk/crouch/jump/dash states (before Integrate).</summary>
     public void HandleGroundControl(FightState s, InputBuffer[] buffers)
     {
         for (int f = 0; f < FightState.FighterCount; f++)
@@ -28,15 +44,22 @@ public sealed class MovementSystem
 
             var input = buffers[f];
             int facing = s.GetFacing(f);
-            bool forwardHeld = facing > 0 ? input.Held(InputButton.Right) : input.Held(InputButton.Left);
-            bool backHeld = facing > 0 ? input.Held(InputButton.Left) : input.Held(InputButton.Right);
+            var forwardButton = facing > 0 ? InputButton.Right : InputButton.Left;
+            var backButton = facing > 0 ? InputButton.Left : InputButton.Right;
+            bool forwardHeld = input.Held(forwardButton);
+            bool backHeld = input.Held(backButton);
+
+            if (TryDash(s, f, input, facing, forwardButton, backButton)) continue;
 
             if (input.Held(InputButton.Up))
             {
                 s.SetStateId(f, FighterStateId.Jump);
                 s.SetAirborne(f, true);
+                s.SetCrouching(f, false);
                 s.SetVy(f, -_cfg.JumpVelocityRaw);
-                s.SetVx(f, forwardHeld ? Data(f).WalkForwardRaw : backHeld ? -Data(f).WalkBackRaw : Fp.Zero);
+                Fp sideways = forwardHeld ? Scaled(f, Data(f).WalkForwardRaw) : backHeld ? -Scaled(f, Data(f).EffectiveWalkBack) : Fp.Zero;
+                s.SetVx(f, sideways * Fp.FromInt(facing));
+                _events.Emit(s.Frame, SimEventId.FighterJumped, (uint)f);
                 continue;
             }
 
@@ -49,7 +72,33 @@ public sealed class MovementSystem
         }
     }
 
-    /// <summary>Integrates velocities, gravity and pushboxes for the frame.</summary>
+    /// <summary>Double-tap forward / back starts a dash / backdash (the second tap must be a fresh press).</summary>
+    private bool TryDash(FightState s, int f, InputBuffer input, int facing, InputButton forwardButton, InputButton backButton)
+    {
+        if (input.Held(InputButton.Down) || input.Held(InputButton.Up)) return false;
+
+        bool forward = Fresh(s, f, input, forwardButton) && MotionRecognizer.Matches(MotionId.DoubleTapForward, input, facing);
+        bool back = !forward && Fresh(s, f, input, backButton) && MotionRecognizer.Matches(MotionId.DoubleTapBack, input, facing);
+        if (!forward && !back) return false;
+
+        var data = Data(f);
+        s.SetInputConsumed(f, s.Frame + 1);
+        s.SetStateId(f, forward ? FighterStateId.Dash : FighterStateId.Backdash);
+        s.SetCrouching(f, false);
+        Fp speed = Scaled(f, forward ? data.EffectiveDashSpeed : -data.EffectiveBackdashSpeed);
+        s.SetVx(f, speed * Fp.FromInt(facing));
+        if (!forward) s.SetInvuln(f, data.EffectiveBackdashInvuln);
+        _events.Emit(s.Frame, SimEventId.Dash, SimEventPayload.Pack(f, forward ? 1 : 0, 0));
+        return true;
+    }
+
+    private static bool Fresh(FightState s, int f, InputBuffer input, InputButton button)
+    {
+        int age = input.PressAge(button, 2);
+        return age >= 0 && s.Frame - age >= s.GetInputConsumed(f);
+    }
+
+    /// <summary>Integrates velocities, gravity, projectiles and pushboxes for the frame.</summary>
     public void Integrate(FightState s)
     {
         // Side ordering before movement: separation must never let fighters swap sides,
@@ -60,40 +109,137 @@ public sealed class MovementSystem
         {
             if (s.GetHitstop(f) > 0) continue;
 
-            int other = 1 - f;
-            UpdateFacing(s, f, other);
-
-            if (s.IsAirborne(f))
-            {
-                Fp vy = s.GetVy(f) + _cfg.GravityRaw;
-                s.SetVy(f, vy);
-                s.SetX(f, s.GetX(f) + s.GetVx(f));
-                s.SetY(f, s.GetY(f) + vy);
-
-                if (s.GetY(f) >= Fp.Zero && vy > Fp.Zero)
-                {
-                    s.SetY(f, Fp.Zero);
-                    s.SetVy(f, Fp.Zero);
-                    s.SetVx(f, Fp.Zero);
-                    s.SetAirborne(f, false);
-                    if (s.GetStateId(f) == FighterStateId.Jump) s.SetStateId(f, FighterStateId.Idle);
-                }
-            }
-            else if (s.GetStateId(f) is FighterStateId.WalkForward or FighterStateId.WalkBack)
-            {
-                Fp vx = s.GetStateId(f) == FighterStateId.WalkForward ? Data(f).WalkForwardRaw : -Data(f).WalkBackRaw;
-                s.SetVx(f, vx);
-                s.SetX(f, s.GetX(f) + vx);
-            }
-            else if (!s.IsAirborne(f))
-            {
-                s.SetVx(f, Fp.Zero);
-            }
-
+            UpdateFacing(s, f, 1 - f);
+            IntegrateFighter(s, f);
             ClampToStage(s, f);
         }
 
         Separate(s, preDelta >= Fp.Zero);
+        UpdateProjectiles(s);
+    }
+
+    private void IntegrateFighter(FightState s, int f)
+    {
+        if (s.IsAirborne(f))
+        {
+            Fp vy = s.GetVy(f) + _cfg.GravityRaw;
+            s.SetVy(f, vy);
+            Fp previousY = s.GetY(f);
+            s.SetX(f, s.GetX(f) + s.GetVx(f));
+            s.SetY(f, previousY + vy);
+
+            if (vy > Fp.Zero)
+            {
+                // Falling: a platform surface crossed this frame catches the fighter before the floor does.
+                if (_hooks.Any && _hooks.TryGetSupport(f, s.GetX(f), previousY, s.GetY(f), true, out Fp surface) && previousY <= surface && s.GetY(f) >= surface)
+                {
+                    Land(s, f, surface);
+                }
+                else if (s.GetY(f) >= Fp.Zero)
+                {
+                    Land(s, f, Fp.Zero);
+                }
+            }
+            return;
+        }
+
+        if (s.GetY(f) != Fp.Zero && !StillSupported(s, f)) return; // walked off a platform edge: now falling
+        s.SetX(f, s.GetX(f) + _hooks.GroundPush(f, s.GetX(f), s.GetY(f)));
+
+        Fp facing = Fp.FromInt(s.GetFacing(f));
+        switch (s.GetStateId(f))
+        {
+            case FighterStateId.WalkForward:
+                s.SetVx(f, Scaled(f, Data(f).WalkForwardRaw) * facing);
+                s.SetX(f, s.GetX(f) + s.GetVx(f));
+                break;
+
+            case FighterStateId.WalkBack:
+                s.SetVx(f, -Scaled(f, Data(f).EffectiveWalkBack) * facing);
+                s.SetX(f, s.GetX(f) + s.GetVx(f));
+                break;
+
+            case FighterStateId.Dash:
+            case FighterStateId.Backdash:
+                s.SetX(f, s.GetX(f) + s.GetVx(f)); // velocity was set when the dash started
+                break;
+
+            case FighterStateId.Hitstun:
+            case FighterStateId.Blockstun:
+            case FighterStateId.Attack:
+                // Pushback (also the attacker when the defender is cornered): slide, losing speed every frame.
+                s.SetX(f, s.GetX(f) + s.GetVx(f));
+                Fp slowed = s.GetVx(f) * Fp.FromRatio(_cfg.PushFrictionPercent, 100);
+                s.SetVx(f, Fp.Abs(slowed).Raw < 0x400 ? Fp.Zero : slowed);
+                break;
+
+            default:
+                s.SetVx(f, Fp.Zero);
+                break;
+        }
+    }
+
+    /// <summary>A grounded fighter above the floor must still have a surface under its feet, otherwise it starts to fall.</summary>
+    private bool StillSupported(FightState s, int f)
+    {
+        if (_hooks.Any && _hooks.TryGetSupport(f, s.GetX(f), s.GetY(f), s.GetY(f), false, out Fp surface))
+        {
+            s.SetY(f, surface); // moving platforms carry the fighter
+            return true;
+        }
+
+        s.SetAirborne(f, true);
+        s.SetVy(f, Fp.Zero);
+        if (FighterStateId.IsNeutral(s.GetStateId(f))) s.SetStateId(f, FighterStateId.Jump);
+        return false;
+    }
+
+    private void Land(FightState s, int f, Fp surfaceY)
+    {
+        s.SetY(f, surfaceY);
+        s.SetVy(f, Fp.Zero);
+        s.SetVx(f, Fp.Zero);
+        s.SetAirborne(f, false);
+
+        int bounce = _hooks.Any ? _hooks.BounceVyRaw(f, s.GetX(f), surfaceY) : 0;
+        if (bounce != 0 && s.GetStateId(f) is not (FighterStateId.Hitstun or FighterStateId.Knockdown or FighterStateId.Ko))
+        {
+            s.SetAirborne(f, true);
+            s.SetVy(f, -Fp.FromRaw(bounce));
+            if (FighterStateId.IsNeutral(s.GetStateId(f))) s.SetStateId(f, FighterStateId.Jump);
+            return;
+        }
+
+        switch (s.GetStateId(f))
+        {
+            case FighterStateId.Jump:
+                s.SetStateId(f, FighterStateId.Idle);
+                break;
+            case FighterStateId.Hitstun:
+                // A launched fighter reaches the floor: hard knockdown.
+                s.SetHitstun(f, 0);
+                s.SetStateId(f, FighterStateId.Knockdown);
+                break;
+        }
+    }
+
+    /// <summary>Moves live projectiles and removes expired ones or those that left the stage.</summary>
+    private void UpdateProjectiles(FightState s)
+    {
+        Fp limit = _cfg.StageHalfWidth + Fp.FromInt(2);
+        for (int slot = 0; slot < FightState.ProjectileSlots; slot++)
+        {
+            if (!s.ProjectileActive(slot)) continue;
+            Fp x = s.ProjectileX(slot) + s.ProjectileVx(slot);
+            int life = s.ProjectileLife(slot) - 1;
+            if (life <= 0 || Fp.Abs(x) > limit)
+            {
+                s.DespawnProjectile(slot);
+                continue;
+            }
+            s.SetProjectileX(slot, x);
+            s.SetProjectileLife(slot, life);
+        }
     }
 
     private static void UpdateFacing(FightState s, int f, int other)

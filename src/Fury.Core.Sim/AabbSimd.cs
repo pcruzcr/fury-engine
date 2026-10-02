@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 
 namespace Fury.Core.Sim;
+// Note: AabbSimd is a pure math utility with no dependencies on Data/Sim types.
 
 /// <summary>
 /// Broadphase AABB overlap filter using 128-bit integer SIMD over raw Q16.16 bits.

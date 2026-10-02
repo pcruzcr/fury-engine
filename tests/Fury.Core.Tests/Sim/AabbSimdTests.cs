@@ -8,15 +8,14 @@ public class AabbSimdTests
     [Fact]
     public void OverlapMask_MatchesScalarSemantics()
     {
-        // Layout: 6 test pairs, mixing overlaps, misses and touching edges (half-open).
         int[] aMinX = [0, 10, 0, 0, 0, -50];
         int[] aMinY = [0, 10, 0, 0, 0, 0];
         int[] aMaxX = [10, 20, 10, 10, 10, -40];
         int[] aMaxY = [10, 20, 10, 10, 10, 10];
 
-        int[] bMinX = [5, 21, 10, -5, 100, -45];   // pair 2 (index 2): touching edge -> NOT overlap
+        int[] bMinX = [5, 21, 10, -5, 100, -45];
         int[] bMinY = [5, 21, 5, -5, 100, 0];
-        int[] bMaxX = [15, 31, 20, 5, 110, -35];   // index 4: no overlap; index 5: negative coords overlap
+        int[] bMaxX = [15, 31, 20, 5, 110, -35];
         int[] bMaxY = [15, 31, 15, 5, 110, 10];
 
         var results = new bool[6];
@@ -28,7 +27,6 @@ public class AabbSimdTests
     [Fact]
     public void OverlapMask_VectorPath_Equals_ScalarTail()
     {
-        // 9 boxes: 2 full SIMD chunks + 1 scalar tail element; both paths must agree.
         const int n = 9;
         var aMinX = new int[n];
         var aMinY = new int[n];

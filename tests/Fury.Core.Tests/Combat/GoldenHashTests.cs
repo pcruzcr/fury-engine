@@ -24,7 +24,6 @@ public class GoldenHashTests
         var hashes = new ulong[Frames];
         for (int f = 0; f < Frames; f++)
         {
-            // Deterministic scripted stream: pseudo-random inputs for both fighters.
             sim.Step(new InputState((ushort)rng.NextULong()), new InputState((ushort)rng.NextULong()));
             hashes[f] = sim.SnapshotHash;
         }
@@ -35,8 +34,6 @@ public class GoldenHashTests
     {
         get
         {
-            // Resolve repo root by walking up from the test bin directory until the
-            // solution file is found; the fixture lives at <root>/tests/fixtures.
             var dir = AppContext.BaseDirectory;
             for (int i = 0; i < 8; i++)
             {
@@ -61,7 +58,7 @@ public class GoldenHashTests
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FixturePathResolved)!);
             File.WriteAllLines(FixturePathResolved, hashes.Select(h => h.ToString("x16")));
-            return; // recording run
+            return;
         }
 
         Assert.True(File.Exists(FixturePathResolved), $"Golden fixture missing at {FixturePathResolved}");

@@ -65,5 +65,7 @@ public readonly struct ArenaSlice<T> where T : unmanaged
 
     public int Length => _length;
 
-    public Span<T> Span => MemoryMarshal.Cast<byte, T>(_buffer.AsSpan(_offset, _length * Unsafe.SizeOf<T>()));
+    public Span<T> Span => _length == 0
+        ? default
+        : MemoryMarshal.CreateSpan(ref Unsafe.As<byte, T>(ref _buffer[_offset]), _length);
 }

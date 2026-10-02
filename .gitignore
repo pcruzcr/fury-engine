@@ -2,7 +2,9 @@
 .godot/
 *.translation
 export.cfg
-export_presets.cfg
+.mono/
+data_*/
+mono_crash.*.json
 
 # .NET
 bin/
@@ -12,15 +14,19 @@ obj/
 .vs/
 .idea/
 artifacts/
+TestResults/
+coverage/
+*.nupkg
+
+# Fury runtime / CI output
+certification_results/
+build/
+dist/
+*.log
 
 # OS
 Thumbs.db
 .DS_Store
-
-# Build
-build/
-dist/
-*.log
 
 # Session tooling
 .zcode/

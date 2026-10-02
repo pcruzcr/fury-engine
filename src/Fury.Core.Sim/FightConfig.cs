@@ -1,3 +1,4 @@
+using Fury.Core.Data;
 using Fury.Core.Math;
 
 namespace Fury.Core.Sim;
@@ -15,6 +16,8 @@ public static class FighterStateId
     public const int Blockstun = 7;
     public const int Knockdown = 8;
     public const int Ko = 9;
+    public const int Dash = 10;
+    public const int Backdash = 11;
 
     /// <summary>True when the fighter may start a new action (grounded neutral states).</summary>
     public static bool IsNeutral(int state) => state is Idle or WalkForward or WalkBack or Crouch;
@@ -40,14 +43,33 @@ public sealed record FightConfig(
     int RageDamagePercent,
     int ComboScaleStepPercent,
     int ComboScaleMinPercent,
-    int ChipDamagePercent)
+    int ChipDamagePercent,
+    int JugglePopRaw = 0x6666,
+    int KnockdownPopRaw = 0x8CCC,
+    int KnockdownFrames = 45,
+    int WakeupInvulnFrames = 8,
+    int MaxProjectilesPerFighter = 2,
+    int PushFrictionPercent = 75)
 {
+    /// <summary>Fingerprint of every rule constant (replay and netplay compatibility).</summary>
+    public ulong Fingerprint()
+    {
+        ReadOnlySpan<int> words =
+        [
+            MaxHealth, RoundSeconds, StageHalfWidth.Raw, GravityRaw.Raw, JumpVelocityRaw.Raw, PushboxHalfWidth.Raw,
+            HurtboxHalfWidth.Raw, HurtboxHeight.Raw, ExGainPerHit.Raw, ResonanceGainOnBlock.Raw, ResonanceGainOnHurt.Raw,
+            RageHealthThreshold, RageDamagePercent, ComboScaleStepPercent, ComboScaleMinPercent, ChipDamagePercent,
+            JugglePopRaw, KnockdownPopRaw, KnockdownFrames, WakeupInvulnFrames, MaxProjectilesPerFighter, PushFrictionPercent,
+        ];
+        return FpHash.HashInts(words);
+    }
+
     public static FightConfig Default() => new(
         MaxHealth: 1000,
         RoundSeconds: 99,
         StageHalfWidth: Fp.FromRatio(24, 1),
-        GravityRaw: Fp.FromRatio(3, 4),
-        JumpVelocityRaw: Fp.FromRatio(9, 1),
+        GravityRaw: Fp.FromRatio(1, 25),
+        JumpVelocityRaw: Fp.FromRatio(7, 10),
         PushboxHalfWidth: Fp.FromRatio(1, 1),
         HurtboxHalfWidth: Fp.FromRatio(1, 2),
         HurtboxHeight: Fp.FromRatio(4, 1),

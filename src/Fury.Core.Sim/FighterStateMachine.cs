@@ -1,67 +1,66 @@
+using Fury.Core.Data;
 using Fury.Core.Math;
 
 namespace Fury.Core.Sim;
 
 /// <summary>
-/// Phases 4–5 of the pipeline: state machine commit and movement integration. Transitions
-/// are driven by the FMT1 move tables (data-driven, ADR-003); frame countdowns run here.
-/// Per-fighter hitstop freezes state frames and movement but the hitstop counter itself.
+/// Phase 4 of the pipeline: state machine commit. Transitions are driven by the move tables (data-driven,
+/// ADR-003); frame countdowns run here. Per-fighter hitstop freezes state frames and movement but the hitstop
+/// counter itself. Handles move starts (including air normals), cancels into other categories once an attack
+/// has connected, projectile spawns, knockdown/wake-up and the end of combos.
 /// </summary>
 public sealed class FighterStateMachine
 {
     private readonly FightConfig _cfg;
-    private readonly CharacterConfig[] _roster;
+    private readonly FighterRoster _roster;
+    private readonly SimEventSink _events;
+    private readonly ModuleHooks _hooks;
 
-    public FighterStateMachine(FightConfig cfg, CharacterConfig p1, CharacterConfig p2)
+    internal FighterStateMachine(FightConfig cfg, FighterRoster roster, SimEventSink events, ModuleHooks hooks)
     {
         _cfg = cfg;
-        _roster = [p1, p2];
+        _roster = roster;
+        _events = events;
+        _hooks = hooks;
     }
 
-    public CharacterConfig Data(int f) => _roster[f];
+    public CharacterConfig Data(int f) => _roster.Get(f);
 
-    /// <summary>Advances timers and applies a resolved intent for <paramref name="f"/>.</summary>
-    public void Commit(FightState s, int f, MoveIntent intent)
+    /// <summary>Advances timers and applies the resolved command (<paramref name="move"/>, or <see cref="CommandResolver.NoMove"/>) for <paramref name="f"/>.</summary>
+    public void Commit(FightState s, int f, int move)
     {
-        int state = s.GetStateId(f);
-
         if (s.GetHitstop(f) > 0)
         {
             s.SetHitstop(f, s.GetHitstop(f) - 1);
             return; // frozen: no state frames, no intents
         }
 
-        switch (state)
+        if (s.GetInvuln(f) > 0) s.SetInvuln(f, s.GetInvuln(f) - 1);
+
+        switch (s.GetStateId(f))
         {
             case FighterStateId.Ko:
                 return;
 
             case FighterStateId.Hitstun:
                 s.SetStateFrame(f, s.GetStateFrame(f) + 1);
-                if (s.GetHitstun(f) > 0)
-                {
-                    s.SetHitstun(f, s.GetHitstun(f) - 1);
-                }
-                if (s.GetHitstun(f) == 0 && s.GetStateFrame(f) > 0 && !s.IsAirborne(f))
-                {
-                    s.SetStateId(f, FighterStateId.Idle);
-                }
+                if (s.GetHitstun(f) > 0) s.SetHitstun(f, s.GetHitstun(f) - 1);
+                // Airborne fighters stay in hitstun until they land (landing turns it into a knockdown).
+                if (s.GetHitstun(f) == 0 && !s.IsAirborne(f)) EndCombo(s, f, FighterStateId.Idle);
                 break;
 
             case FighterStateId.Blockstun:
                 s.SetStateFrame(f, s.GetStateFrame(f) + 1);
                 s.SetBlockstun(f, s.GetBlockstun(f) - 1);
-                if (s.GetBlockstun(f) == 0)
-                {
-                    s.SetStateId(f, FighterStateId.Idle);
-                }
+                if (s.GetBlockstun(f) <= 0) s.SetStateId(f, FighterStateId.Idle);
                 break;
 
             case FighterStateId.Knockdown:
                 s.SetStateFrame(f, s.GetStateFrame(f) + 1);
-                if (s.GetStateFrame(f) >= 45)
+                if (s.GetStateFrame(f) >= _cfg.KnockdownFrames)
                 {
-                    s.SetStateId(f, FighterStateId.Idle);
+                    EndCombo(s, f, FighterStateId.Idle);
+                    s.SetInvuln(f, _cfg.WakeupInvulnFrames);
                 }
                 break;
 
@@ -72,50 +71,95 @@ public sealed class FighterStateMachine
             case FighterStateId.Jump:
                 s.SetStateFrame(f, s.GetStateFrame(f) + 1);
                 break;
+
+            case FighterStateId.Dash:
+                s.SetStateFrame(f, s.GetStateFrame(f) + 1);
+                if (s.GetStateFrame(f) >= Data(f).EffectiveDashFrames) EndMotion(s, f);
+                break;
+
+            case FighterStateId.Backdash:
+                s.SetStateFrame(f, s.GetStateFrame(f) + 1);
+                if (s.GetStateFrame(f) >= Data(f).EffectiveBackdashFrames) EndMotion(s, f);
+                break;
         }
 
-        if (FighterStateId.IsNeutral(s.GetStateId(f)) && intent != MoveIntent.None)
-        {
-            StartAttack(s, f, intent);
-        }
+        if (move != CommandResolver.NoMove) TryStart(s, f, move);
     }
 
-    private void StartAttack(FightState s, int f, MoveIntent intent)
+    /// <summary>The defender recovered: the opponent's combo ends and the counters reset.</summary>
+    private static void EndCombo(FightState s, int defender, int nextState)
     {
-        int slot = CommandResolver.ToMoveSlot(intent);
-        if (slot < 0) return;
+        s.SetStateId(defender, nextState);
+        int attacker = 1 - defender;
+        s.SetComboCount(attacker, 0);
+        s.SetComboDamage(attacker, 0);
+    }
 
-        var entry = Data(f).Moves.GetMove(slot);
-        bool super = intent == MoveIntent.Super;
-        bool special = intent == MoveIntent.Special;
+    private static void EndMotion(FightState s, int f)
+    {
+        s.SetVx(f, Fp.Zero);
+        s.SetStateId(f, FighterStateId.Idle);
+    }
 
-        // Super spends all EX; special spends one segment when metered (EX special).
-        if (super)
-        {
-            if (s.GetExMeter(f) < 300) return;
-            s.SetExMeter(f, 0);
-        }
-        else if (special && s.GetExMeter(f) >= 100)
-        {
-            s.SetExMeter(f, s.GetExMeter(f) - 100);
-        }
+    /// <summary>Why a command may start: grounded neutral, an air normal from a jump, or a cancel of a connected attack.</summary>
+    private bool CanStart(FightState s, int f, int index, in MoveEntry move)
+    {
+        int state = s.GetStateId(f);
+        if (FighterStateId.IsNeutral(state)) return !move.Has(MoveTraits.Air) || s.IsAirborne(f);
+        if (state == FighterStateId.Jump && s.IsAirborne(f)) return move.Has(MoveTraits.Air);
+        if (state != FighterStateId.Attack) return false;
+
+        // Cancel: the current attack connected (hit or block), we are past its startup, the target is allowed.
+        var current = Data(f).Moves.GetMove(s.GetMoveIndex(f));
+        return s.GetConnect(f) != 0
+            && index != s.GetMoveIndex(f)
+            && s.GetStateFrame(f) > current.StartupFrames
+            && (current.CancelMask & MoveCategory.Bit(move.Category)) != 0
+            && (!move.Has(MoveTraits.Air) || s.IsAirborne(f));
+    }
+
+    private void TryStart(FightState s, int f, int index)
+    {
+        var move = Data(f).Moves.GetMove(index);
+        if (!CanStart(s, f, index, move)) return;
+        if (move.MeterCost > s.GetExMeter(f)) return;
+
+        bool cancel = s.GetStateId(f) == FighterStateId.Attack;
+        s.SetExMeter(f, s.GetExMeter(f) - move.MeterCost);
 
         s.SetStateId(f, FighterStateId.Attack);
-        s.SetMoveIndex(f, slot);
+        s.SetMoveIndex(f, index);
         s.SetHasHit(f, false);
-        s.SetComboCount(f, 0);
-        s.SetComboDamage(f, 0);
-        s.SetCrouching(f, intent is MoveIntent.CrouchLight or MoveIntent.CrouchHeavy);
+        s.SetConnect(f, 0);
+        s.SetCrouching(f, MoveCommand.Stance(move.Command) == MoveStance.Crouch);
+        s.SetInputConsumed(f, s.Frame + 1); // the presses that triggered this move are used up
+
+        _events.Emit(s.Frame, cancel ? SimEventId.Cancel : SimEventId.MoveStarted, SimEventPayload.Pack(f, index, 0));
     }
 
     private void AdvanceAttack(FightState s, int f)
     {
         s.SetStateFrame(f, s.GetStateFrame(f) + 1);
-        var entry = Data(f).Moves.GetMove(s.GetMoveIndex(f));
-        int total = entry.StartupFrames + entry.ActiveFrames + entry.RecoveryFrames;
-        if (s.GetStateFrame(f) >= total && !s.IsAirborne(f))
+        var move = Data(f).Moves.GetMove(s.GetMoveIndex(f));
+
+        if (move.Has(MoveTraits.Projectile) && s.GetStateFrame(f) == move.ProjectileSpawnFrame) SpawnProjectile(s, f, move);
+
+        if (s.GetStateFrame(f) >= move.TotalFrames)
         {
-            s.SetStateId(f, FighterStateId.Idle);
+            // An air attack that outlasts the jump falls back into the jump state; grounded ones return to neutral.
+            s.SetStateId(f, s.IsAirborne(f) ? FighterStateId.Jump : FighterStateId.Idle);
+        }
+    }
+
+    private void SpawnProjectile(FightState s, int f, in MoveEntry move)
+    {
+        if (s.ProjectileCount(f) >= _cfg.MaxProjectilesPerFighter) return;
+        Fp facing = Fp.FromInt(s.GetFacing(f));
+        Fp x = s.GetX(f) + ((_cfg.PushboxHalfWidth + Fp.Half) * facing);
+        Fp y = s.GetY(f) - Fp.FromRaw(move.BoxCenterYRaw);
+        if (s.TrySpawnProjectile(f, s.GetMoveIndex(f), x, y, Fp.FromRaw(move.ProjectileSpeedRaw) * facing, System.Math.Max(1, move.ProjectileLifetime)))
+        {
+            _events.Emit(s.Frame, SimEventId.ProjectileSpawned, SimEventPayload.Pack(f, s.GetMoveIndex(f), 0));
         }
     }
 
@@ -133,11 +177,11 @@ public sealed class FighterStateMachine
         if (s.GetStateId(f) != FighterStateId.Attack) return false;
 
         var entry = Data(f).Moves.GetMove(s.GetMoveIndex(f));
-        if (!IsActiveFrame(entry, s.GetStateFrame(f)) || s.HasHitThisActive(f)) return false;
+        if (entry.Has(MoveTraits.Projectile) || !IsActiveFrame(entry, s.GetStateFrame(f)) || s.HasHitThisActive(f)) return false;
 
         Fp facing = Fp.FromInt(s.GetFacing(f));
         Fp front = s.GetX(f) + (_cfg.PushboxHalfWidth * facing);
-        Fp tip = front + (Fp.FromRaw(entry.ReachRaw) * facing);
+        Fp tip = front + (Fp.FromRaw(entry.ReachRaw + _hooks.ReachBonusRaw(f)) * facing);
         Fp centerY = s.GetY(f) - Fp.FromRaw(entry.BoxCenterYRaw);
         Fp half = Fp.FromRaw(entry.BoxHalfHeightRaw);
 
@@ -146,6 +190,20 @@ public sealed class FighterStateMachine
         minY = centerY - half;
         maxY = centerY + half;
         return true;
+    }
+
+    /// <summary>Hitbox of an active projectile slot in world coordinates.</summary>
+    public void GetProjectileBox(FightState s, int slot, out Fp minX, out Fp minY, out Fp maxX, out Fp maxY)
+    {
+        var entry = Data(s.ProjectileOwner(slot)).Moves.GetMove(s.ProjectileMove(slot));
+        Fp halfWidth = Fp.FromRaw(entry.ReachRaw) * Fp.Half;
+        Fp half = Fp.FromRaw(entry.BoxHalfHeightRaw);
+        Fp x = s.ProjectileX(slot);
+        Fp y = s.ProjectileY(slot);
+        minX = x - halfWidth;
+        maxX = x + halfWidth;
+        minY = y - half;
+        maxY = y + half;
     }
 
     /// <summary>Static hurtbox in world coordinates (standing or crouching height).</summary>
