@@ -71,6 +71,13 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
 - Las plataformas son superficies de aterrizaje unidireccionales (sin colisión lateral).
 - No hay arte, animación ni audio final: las vistas usan formas primitivas hasta que se aporten escenas por personaje.
 - El online es conexión directa (IP:puerto) sin matchmaking, relay/NAT traversal ni reconexión.
-- Rondas (mejor de 3) se gestionan en el director, no dentro de la simulación; online juega una sola ronda.
-- C# en Godot no exporta a Web; los presets Android/iOS requieren sus toolchains y no se han probado aquí.
+- Las rondas (mejor de 3) se gestionan en el director, no dentro de la simulación. Online funciona con una **línea de
+  tiempo de red continua**: cada ronda es una simulación nueva cuyo frame 0 es un frame de red acordado
+  (`FightState.RoundEndFrame + 1 + resultados`, derivado de estado confirmado); `NetplaySession.StartNextRound` cambia la
+  simulación sin tocar el transporte y retransmite desde un historial local los frames que el rival aún no confirmó.
+  Verificado con tests (jitter + pérdida) y con un mejor de 3 real entre dos procesos Godot.
+- Los controles táctiles (`UI/TouchControls`) están implementados y verificados por captura, pero no probados en un
+  dispositivo ni en una exportación Android/iOS real: C# en Godot no exporta a Web y esos presets necesitan sus toolchains.
+- Mods de personajes: el editor guarda `user://characters/<id>.fmt2` y el juego lo carga al arrancar
+  (`CharacterRoster.SetMoveTableOverride`); las huellas de personaje hacen que dos peers con tablas distintas se rechacen.
 - Los jobs de CI de AOT y de Godot (`continue-on-error`) no se han podido ejecutar en un runner real.

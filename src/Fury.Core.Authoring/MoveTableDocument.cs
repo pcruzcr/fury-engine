@@ -67,5 +67,23 @@ public sealed class MoveTableDocument
         if (m.Damage < 0) throw new ArgumentOutOfRangeException(nameof(m), "Damage must be >= 0.");
         if (m.HitstopFrames < 0) throw new ArgumentOutOfRangeException(nameof(m), "Hitstop must be >= 0.");
         if (m.ReachRaw < 0 || m.BoxHalfHeightRaw < 0) throw new ArgumentOutOfRangeException(nameof(m), "Reach/box size must be >= 0.");
+
+        // FMT2 fields.
+        if (m.HitstunFrames < 0 || m.BlockstunFrames < 0) throw new ArgumentOutOfRangeException(nameof(m), "Hitstun/blockstun must be >= 0 (0 = legacy formula).");
+        if (!Enum.IsDefined(m.Level)) throw new ArgumentOutOfRangeException(nameof(m), "Unknown hit level.");
+        if (((int)m.Traits & ~AllTraits) != 0) throw new ArgumentOutOfRangeException(nameof(m), "Unknown move traits.");
+        if (m.Category is < 0 or > 7) throw new ArgumentOutOfRangeException(nameof(m), "Category must be 0..7.");
+        if ((m.CancelMask & ~0xFF) != 0) throw new ArgumentOutOfRangeException(nameof(m), "Cancel mask uses categories 0..7 only.");
+        if (m.MeterCost is < 0 or > 300) throw new ArgumentOutOfRangeException(nameof(m), "Meter cost must be 0..300 EX points.");
+        if (m.LaunchVyRaw < 0) throw new ArgumentOutOfRangeException(nameof(m), "Launch velocity must be >= 0 (positive = up).");
+        if (m.Has(MoveTraits.Projectile))
+        {
+            if (m.ProjectileLifetime < 1) throw new ArgumentOutOfRangeException(nameof(m), "A projectile move needs a lifetime >= 1.");
+            if (m.ProjectileSpawnFrame < 1 || m.ProjectileSpawnFrame > m.TotalFrames) throw new ArgumentOutOfRangeException(nameof(m), "The projectile must spawn within the move.");
+            if (m.ProjectileSpeedRaw == 0) throw new ArgumentOutOfRangeException(nameof(m), "A projectile needs a speed.");
+        }
+        if (m.Has(MoveTraits.Air) && m.Has(MoveTraits.Throw)) throw new ArgumentOutOfRangeException(nameof(m), "Throws are ground-only.");
     }
+
+    private static readonly int AllTraits = (int)(MoveTraits.Air | MoveTraits.Launcher | MoveTraits.Knockdown | MoveTraits.Throw | MoveTraits.Projectile | MoveTraits.Unblockable);
 }

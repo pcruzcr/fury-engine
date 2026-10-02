@@ -42,6 +42,9 @@ public static class GameSession
     // Replay playback.
     public static string? ReplayPath { get; set; }
 
+    /// <summary>Overrides the round length in seconds when greater than 0 (tests and CI; both online peers must use the same value).</summary>
+    public static int RoundSecondsOverride { get; set; }
+
     public static CharacterConfig CreateP1() => CharacterRoster.Create(P1CharacterId);
 
     public static CharacterConfig CreateP2() => CharacterRoster.Create(P2CharacterId);

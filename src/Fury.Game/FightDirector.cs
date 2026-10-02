@@ -30,6 +30,7 @@ public sealed partial class FightDirector : Node
     private const int RoundsToWin = 2;
     private const int IntroFrames = 100;
     private const int RoundOverFrames = 150;
+    private const int OnlineResultFrames = 150;
 
     private readonly FightEventQueue _events = new();
     private FightSimulation _sim = null!;
@@ -62,12 +63,14 @@ public sealed partial class FightDirector : Node
     public override void _Ready()
     {
         GameSettings.ApplyAudio();
+        Tools.CharacterMods.LoadAll();
         ParseUserArgs();
 
         _hud = new Hud();
         _audio = new AudioManager();
         AddChild(_audio);
         AddChild(_hud);
+        if (GameSession.Mode != GameMode.Replay) AddChild(new UI.TouchControls());
 
         SetView(GameSettings.ViewMode);
 
@@ -114,6 +117,7 @@ public sealed partial class FightDirector : Node
                 _cpu1 = new CpuBrain(1, aggression: 8);
                 GameSession.Mode = GameMode.Versus;
             }
+            else if (arg == "--fury-touch") GameSettings.ForceTouchControls = true;
             else if (arg.StartsWith("--fury-view=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(12), out int v) && v is >= 0 and <= 2) GameSettings.ViewMode = (ViewMode)v;
             else if (arg.StartsWith("--fury-frames=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(14), out int n) && n > 0) frames = n;
             else if (arg.StartsWith("--fury-capture=", StringComparison.Ordinal)) _capturePath = arg[15..];
@@ -127,6 +131,7 @@ public sealed partial class FightDirector : Node
             else if (arg.StartsWith("--fury-remote=", StringComparison.Ordinal)) GameSession.NetRemoteHost = arg[14..];
             else if (arg.StartsWith("--fury-port=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(12), out int port)) GameSession.NetPort = port;
             else if (arg.StartsWith("--fury-character=", StringComparison.Ordinal)) GameSession.P1CharacterId = arg[17..];
+            else if (arg.StartsWith("--fury-round-seconds=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(21), out int seconds) && seconds > 0) GameSession.RoundSecondsOverride = seconds;
             else if (arg.StartsWith("--fury-seed=", StringComparison.Ordinal) && ulong.TryParse(arg.AsSpan(12), out ulong s)) seed = s;
         }
         if (onlineBrain) _onlineBrain = new CpuBrain(seed, aggression: 8);
@@ -138,7 +143,7 @@ public sealed partial class FightDirector : Node
         if (_quitTick > 0 && _ticks >= _quitTick)
         {
             _quitTick = -1;
-            GD.Print($"[fury] online-result status={_online?.Session?.Status} frame={_sim?.Frame} check120={_netCheckHash:x16} rollbacks={_sim?.Stats.Rollbacks}");
+            GD.Print($"[fury] online-result status={_online?.Session?.Status} round={_round} wins={_wins[0]}-{_wins[1]} check120={_netCheckHash:x16} phase={_phase}");
             GetTree().Quit();
             return;
         }
@@ -170,6 +175,7 @@ public sealed partial class FightDirector : Node
     private FightConfig BuildConfig()
     {
         var cfg = FightConfig.Default();
+        if (GameSession.RoundSecondsOverride > 0) cfg = cfg with { RoundSeconds = GameSession.RoundSecondsOverride };
         return GameSession.Mode == GameMode.Training ? cfg with { RoundSeconds = 9999 } : cfg;
     }
 
@@ -194,7 +200,7 @@ public sealed partial class FightDirector : Node
     {
         _online = new OnlineMatch(
             GameSession.NetIsHost, GameSession.NetRemoteHost, GameSession.NetPort,
-            GameSession.P1CharacterId, FightConfig.Default(), GameSession.NetInputDelay);
+            GameSession.P1CharacterId, BuildConfig(), GameSession.NetInputDelay);
         _p1 = GameSession.CreateP1();
         _p2 = GameSession.CreateP2();
         _phase = Phase.Connecting;
@@ -259,6 +265,9 @@ public sealed partial class FightDirector : Node
                 return;
             case Phase.RoundOver:
                 TickRoundOver();
+                return;
+            case Phase.MatchOver:
+                _online?.Session?.Pump(); // the peer may still need our last inputs
                 return;
         }
     }
@@ -416,7 +425,13 @@ public sealed partial class FightDirector : Node
         bool timeout = _sim.State.GetHealth(0) > 0 && _sim.State.GetHealth(1) > 0;
         _hud.ShowBanner(winner < 0 ? "DRAW" : timeout ? "TIME UP" : "K.O.", 0f);
 
-        if (_replay != null || _online != null || GameSession.Mode == GameMode.Training)
+        if (_online != null)
+        {
+            EnterPhase(Phase.RoundOver); // wins are counted once the result is confirmed by both peers
+            return;
+        }
+
+        if (_replay != null || GameSession.Mode == GameMode.Training)
         {
             EnterPhase(Phase.MatchOver);
             if (_replay == null && GameSession.Mode != GameMode.Training) _hud.ShowBanner($"{WinnerName(winner)}\nPress ENTER", 0f);
@@ -430,8 +445,64 @@ public sealed partial class FightDirector : Node
         EnterPhase(Phase.RoundOver);
     }
 
+    /// <summary>
+    /// Online round end: keep playing the round out on the shared timeline, then, once every frame up to the next round start
+    /// is confirmed (so both peers derive the same start from the same final state), count the win and swap the simulation.
+    /// </summary>
+    private void TickOnlineRoundOver()
+    {
+        var net = _online!.Session!;
+        if (_sim.State.RoundState == 0)
+        {
+            // A rollback showed the round was not over after all: resume fighting.
+            _hud.HideBanner();
+            EnterPhase(Phase.Fighting);
+            return;
+        }
+
+        int target = _sim.State.RoundEndFrame + 1 + OnlineResultFrames;
+        if (net.Frame < target)
+        {
+            net.Tick();
+            AfterSimStep();
+            return;
+        }
+
+        net.Pump();
+        if (net.Frame != target || net.Runner.Session.ConfirmedThrough < target - 1) return;
+
+        int winner = _sim.State.Winner;
+        if (winner < 0) { _wins[0]++; _wins[1]++; }
+        else _wins[winner]++;
+        _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
+
+        if (_wins[0] >= RoundsToWin || _wins[1] >= RoundsToWin)
+        {
+            int champion = _wins[0] == _wins[1] ? -1 : _wins[0] > _wins[1] ? 0 : 1;
+            EnterPhase(Phase.MatchOver);
+            _hud.ShowBanner($"{WinnerName(champion)}\nPress ENTER", 0f);
+            return;
+        }
+
+        _round++;
+        _events.Clear();
+        _sim = _online.BeginNextRound(target);
+        _view.Bind(_sim);
+        _hud.Setup(_p1.Id, _p2.Id, _sim.Config.MaxHealth);
+        _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
+        _hud.ShowBanner($"ROUND {_round}", 1.0f);
+        _audio.Play(Sfx.RoundStart);
+        EnterPhase(Phase.Fighting);
+    }
+
     private void TickRoundOver()
     {
+        if (_online?.Session != null)
+        {
+            TickOnlineRoundOver();
+            return;
+        }
+
         // Keep stepping with neutral input so knockdowns and falls finish playing out.
         if (_phaseFrame < RoundOverFrames)
         {

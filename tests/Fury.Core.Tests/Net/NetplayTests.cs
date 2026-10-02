@@ -153,6 +153,110 @@ public class NetplayTests
         Assert.Throws<ArgumentException>(() => runner.Advance(5));
     }
 
+
+    // ------------------------------------------------------------------ multi-round matches
+
+    private const int ResultFrames = 40;
+    private static readonly FightConfig ShortRounds = FightConfig.Default() with { RoundSeconds = 2 };
+
+    private sealed class MatchPeer
+    {
+        public NetplaySession Net = null!;
+        public required FightSimulation Sim;
+        public int Round;
+        public readonly List<ulong> EndHashes = [];
+
+        public void Step(int totalRounds)
+        {
+            if (Sim.State.RoundState == 0)
+            {
+                Net.Tick();
+                return;
+            }
+
+            // Round over: keep playing it out, then (once every frame up to the next start is confirmed) swap the sim.
+            int target = Sim.State.RoundEndFrame + 1 + ResultFrames;
+            if (Net.Frame < target)
+            {
+                Net.Tick();
+                return;
+            }
+
+            Net.Pump();
+            if (Net.Frame != target || Net.Runner.Session.ConfirmedThrough < target - 1 || Round + 1 >= totalRounds) return;
+
+            EndHashes.Add(Net.Runner.ConfirmedHash(target - 1));
+            Round++;
+            Sim = new FightSimulation(GlenData.Create(), KiraData.Create(), ShortRounds);
+            Net.StartNextRound(Sim, Net.NetFrameBase + target);
+        }
+    }
+
+    [Fact]
+    public void TwoPeers_PlayAFullMatchOfSeveralRounds_OnOneContinuousTimeline()
+    {
+        const int rounds = 3;
+        const int delay = 2;
+        var sampled1 = RandomInputs(71, 4000);
+        var sampled2 = RandomInputs(72, 4000);
+        ushort Applied(ushort[] s, int abs) => abs >= delay ? s[abs - delay] : (ushort)0;
+
+        // Offline reference: the same rounds, the same absolute input timeline.
+        var expectedEnd = new List<ulong>();
+        int offlineBase = 0;
+        for (int r = 0; r < rounds - 1; r++)
+        {
+            var sim = new FightSimulation(GlenData.Create(), KiraData.Create(), ShortRounds);
+            int f = 0;
+            int target = int.MaxValue;
+            while (f < target)
+            {
+                sim.Step(new InputState(Applied(sampled1, offlineBase + f)), new InputState(Applied(sampled2, offlineBase + f)));
+                f++;
+                if (sim.State.RoundState != 0 && target == int.MaxValue) target = sim.State.RoundEndFrame + 1 + ResultFrames;
+            }
+            expectedEnd.Add(sim.SnapshotHash);
+            offlineBase += target;
+        }
+
+        var link = new LoopbackPair(seed: 8, maxDelayTicks: 4, dropRatePermyriad: 2000);
+        var simA = new FightSimulation(GlenData.Create(), KiraData.Create(), ShortRounds);
+        var simB = new FightSimulation(GlenData.Create(), KiraData.Create(), ShortRounds);
+        var a = new MatchPeer { Sim = simA };
+        var b = new MatchPeer { Sim = simB };
+
+        // The sampling function receives LOCAL frames; offset it by each round's base so both peers keep one timeline.
+        a.Net = new NetplaySession(simA, link.A, f => new InputState(sampled1[System.Math.Min(a.Net.NetFrameBase + f, sampled1.Length - 1)]), 0, delay);
+        b.Net = new NetplaySession(simB, link.B, f => new InputState(sampled2[System.Math.Min(b.Net.NetFrameBase + f, sampled2.Length - 1)]), 1, delay);
+
+        for (int guard = 0; guard < 60_000 && (a.Round < rounds - 1 || b.Round < rounds - 1); guard++)
+        {
+            a.Step(rounds);
+            b.Step(rounds);
+            link.Tick();
+        }
+
+        Assert.Equal(rounds - 1, a.Round);
+        Assert.Equal(rounds - 1, b.Round);
+        Assert.NotEqual(NetplayStatus.Desynced, a.Net.Status);
+        Assert.NotEqual(NetplayStatus.Desynced, b.Net.Status);
+        Assert.Equal(rounds - 1, a.EndHashes.Count);
+        for (int r = 0; r < rounds - 1; r++)
+        {
+            Assert.NotEqual(0UL, a.EndHashes[r]);
+            Assert.Equal(a.EndHashes[r], b.EndHashes[r]);
+            Assert.Equal(expectedEnd[r], a.EndHashes[r]); // and both equal the offline simulation of the same timeline
+        }
+    }
+
+    [Fact]
+    public void NextRound_MustStartExactlyWhereThePreviousOneStopped()
+    {
+        var link = new LoopbackPair(seed: 1);
+        var net = new NetplaySession(CreateSim(), link.A, _ => new InputState(0), 0, inputDelay: 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => net.StartNextRound(CreateSim(), netFrameBase: 50));
+    }
+
     // ------------------------------------------------------------------ wire format
 
     [Fact]

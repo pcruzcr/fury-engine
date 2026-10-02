@@ -54,7 +54,11 @@ var (keys, peer) = UdpHandshake.Run(localPort, host, remotePort, characterId, cf
 using var udp = new UdpTransport(localPort, host, remotePort, keys);
 var net = new NetplaySession(sim, udp, localInput, localSlot, inputDelay: 2);
 bool advanced = net.Tick();          // entrega, avanza, envía ventana redundante; net.Status: Running/Stalled/Desynced
+net.StartNextRound(newSim, net.NetFrameBase + framesPlayed); // siguiente ronda en la misma línea de tiempo de red
 ```
+
+`FightState.RoundEndFrame` da el frame en que terminó la ronda (ambos peers derivan de él el inicio de la siguiente).
+`CharacterRoster.SetMoveTableOverride(id, table)` reemplaza la tabla de un personaje (mods / editor).
 
 `INetTransport` (ventanas de inputs + ack + huella), `RemoteInputBuffer` (acotado), `RttEstimator`, `InputPacket`,
 `SessionCrypto/SessionKeys` (claves direccionales), `PacketAuthenticator`, `LoopbackPair` (red simulada determinista).

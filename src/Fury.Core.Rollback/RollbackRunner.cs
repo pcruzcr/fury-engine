@@ -76,6 +76,16 @@ public sealed class RollbackRunner
     public InputState LocalInput(int appliedFrame) => _session.GetLocal(appliedFrame);
 
     /// <summary>
+    /// Provides the local input of a frame that was sampled before this runner existed (the first <c>inputDelay</c>
+    /// frames of a round were sampled while the previous round was still running). Call before the first advance.
+    /// </summary>
+    public void SeedLocalInput(int frame, InputState input)
+    {
+        if (_sim.Frame != 0) throw new InvalidOperationException("Local inputs can only be seeded before the first frame.");
+        _session.PushLocal(frame, input);
+    }
+
+    /// <summary>
     /// Advances one frame if the prediction barrier allows it. Returns false (and does nothing)
     /// when the peer is too far ahead: the caller should stall and keep delivering remote input.
     /// </summary>

@@ -9,6 +9,7 @@ public partial class MainMenu : Control
     {
         GameSettings.Load();
         GameSettings.ApplyAudio();
+        Fury.Game.Tools.CharacterMods.LoadAll();
 
         var column = UiKit.CenterColumn(this);
         UiKit.Title(column, "DUAL FURY", 72);

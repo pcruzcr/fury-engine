@@ -79,4 +79,31 @@ public class EditorDocumentTests
         Assert.True(doc.TryRemoveAt(extra));
         Assert.Throws<System.ArgumentOutOfRangeException>(() => doc.Set(0, doc.Get(0) with { ActiveFrames = 0 }));
     }
+
+    [Fact]
+    public void EveryShippedMove_PassesValidation()
+    {
+        foreach (var id in CharacterRoster.Ids)
+        {
+            var doc = MoveTableDocument.FromTable(CharacterRoster.Create(id).Moves);
+            for (int i = 0; i < doc.Count; i++) MoveTableDocument.Validate(doc.Get(i));
+        }
+    }
+
+    [Fact]
+    public void Validate_RejectsIncoherentFmt2Moves()
+    {
+        var baseMove = GlenData.Create().Moves.GetMove(0);
+        void Rejects(MoveEntry m) => Assert.Throws<System.ArgumentOutOfRangeException>(() => MoveTableDocument.Validate(m));
+
+        Rejects(baseMove with { HitstunFrames = -1 });
+        Rejects(baseMove with { Level = (HitLevel)9 });
+        Rejects(baseMove with { Traits = (MoveTraits)0x400 });
+        Rejects(baseMove with { Category = 8 });
+        Rejects(baseMove with { MeterCost = 301 });
+        Rejects(baseMove with { Traits = MoveTraits.Projectile });                                   // no lifetime / spawn / speed
+        Rejects(baseMove with { Traits = MoveTraits.Projectile, ProjectileLifetime = 10, ProjectileSpawnFrame = 99, ProjectileSpeedRaw = 1 });
+        Rejects(baseMove with { Traits = MoveTraits.Air | MoveTraits.Throw });
+        MoveTableDocument.Validate(baseMove with { Traits = MoveTraits.Projectile, ProjectileLifetime = 10, ProjectileSpawnFrame = 3, ProjectileSpeedRaw = 1 });
+    }
 }

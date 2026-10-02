@@ -319,12 +319,38 @@ public static class CharacterRoster
     /// <summary>Ids in display order.</summary>
     public static IReadOnlyList<string> Ids { get; } = ["glen", "kira"];
 
+    private static readonly Dictionary<string, BinaryMoveTable> TableOverrides = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Replaces the move table of a built-in character (modding and the frame data editor). The override must keep the
+    /// canonical <see cref="MoveSlot.Count"/> slots first. Netplay and replays compare character fingerprints, so peers
+    /// with different tables refuse to play each other instead of desyncing. Pass null to restore the built-in table.
+    /// </summary>
+    /// <exception cref="InvalidDataException">The table lacks the canonical slots.</exception>
+    public static void SetMoveTableOverride(string id, BinaryMoveTable? table)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        if (table is null)
+        {
+            TableOverrides.Remove(id);
+            return;
+        }
+        if (table.MoveCount < MoveSlot.Count) throw new InvalidDataException($"A character table needs at least {MoveSlot.Count} moves.");
+        TableOverrides[id] = table;
+    }
+
+    public static bool HasOverride(string id) => TableOverrides.ContainsKey(id);
+
     /// <summary>Builds the config for <paramref name="id"/> (case-insensitive).</summary>
     /// <exception cref="ArgumentException">Unknown id.</exception>
-    public static CharacterConfig Create(string id) => id?.ToLowerInvariant() switch
+    public static CharacterConfig Create(string id)
     {
-        "glen" => GlenData.Create(),
-        "kira" => KiraData.Create(),
-        _ => throw new ArgumentException($"Unknown character id '{id}'.", nameof(id)),
-    };
+        var config = id?.ToLowerInvariant() switch
+        {
+            "glen" => GlenData.Create(),
+            "kira" => KiraData.Create(),
+            _ => throw new ArgumentException($"Unknown character id '{id}'.", nameof(id)),
+        };
+        return TableOverrides.TryGetValue(config.Id, out var table) ? config with { Moves = table } : config;
+    }
 }

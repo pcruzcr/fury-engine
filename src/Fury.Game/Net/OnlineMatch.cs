@@ -30,6 +30,9 @@ public sealed class OnlineMatch : IDisposable
     private readonly int _remotePort;
     private readonly int _localPort;
     private readonly CancellationTokenSource _cancel = new();
+    private CharacterConfig? _p1;
+    private CharacterConfig? _p2;
+    private IFightTracer? _tracer;
 
     public OnlineMatch(
         bool host,
@@ -97,6 +100,9 @@ public sealed class OnlineMatch : IDisposable
             var p2 = _host ? remote : local;
             P1Id = p1.Id;
             P2Id = p2.Id;
+            _p1 = p1;
+            _p2 = p2;
+            _tracer = tracer;
 
             Sim = new FightSimulation(p1, p2, _config, tracer);
             Transport = new UdpTransport(_localPort, _remoteHost, _remotePort, keys);
@@ -108,6 +114,19 @@ public sealed class OnlineMatch : IDisposable
             keys.Dispose();
             Fail(e.Message);
         }
+    }
+
+    /// <summary>
+    /// Starts the next round of the match on the same network timeline. <paramref name="framesPlayed"/> is the exact length of
+    /// the finished round (both peers derive it from confirmed state, see <see cref="FightState.RoundEndFrame"/>).
+    /// </summary>
+    public FightSimulation BeginNextRound(int framesPlayed)
+    {
+        if (Session is null || _p1 is null || _p2 is null) throw new InvalidOperationException("The match has not started.");
+        var sim = new FightSimulation(_p1, _p2, _config, _tracer);
+        Session.StartNextRound(sim, Session.NetFrameBase + framesPlayed);
+        Sim = sim;
+        return sim;
     }
 
     private void Fail(string message)

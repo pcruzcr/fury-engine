@@ -36,6 +36,9 @@ public static class GameSettings
 
     public static bool ShowHitboxes { get; set; }
 
+    /// <summary>Show the on-screen touch pad even without a touch screen (testing; <c>--fury-touch</c>).</summary>
+    public static bool ForceTouchControls { get; set; }
+
     /// <summary>Master volume, linear 0..1.</summary>
     public static float MasterVolume { get; set; } = 0.8f;
 

@@ -49,6 +49,9 @@ Abrir el proyecto en Godot: `godot --editor --path .` (la primera vez construye 
 - Mando: cruceta/stick izquierdo, A B X Y, hombros, Back (poder), clic del stick derecho (tag).
 - En combate: F1 hitboxes · F2 cambiar vista · F3 depuración · Esc menú.
 
+En móvil o con `--fury-touch` aparece un pad táctil en pantalla que dispara las mismas acciones. El editor de frame data
+(menú, builds de debug) guarda `user://characters/<id>.fmt2`, que el juego carga al arrancar.
+
 ## Crear un personaje
 
 Un personaje es una tabla de movimientos (`MoveEntry`, ver `GlenData`) más estadísticas. Cada movimiento declara su

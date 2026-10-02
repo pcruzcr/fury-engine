@@ -28,7 +28,7 @@ public sealed class FightState
 
     private enum Global
     {
-        Frame, RoundTimer, RoundState, Winner, Count,
+        Frame, RoundTimer, RoundState, Winner, RoundEndFrame, Count,
     }
 
     private enum ProjField
@@ -80,6 +80,9 @@ public sealed class FightState
     /// <summary>-1 none / draw, 0 / 1 = winning fighter.</summary>
     public int Winner => _data.Span[OffGlobal + (int)Global.Winner];
 
+    /// <summary>Frame at which the round ended (0 while it is live). Online matches derive the next round start from it.</summary>
+    public int RoundEndFrame => _data.Span[OffGlobal + (int)Global.RoundEndFrame];
+
     public void TickFrame() => _data.Span[OffGlobal + (int)Global.Frame]++;
 
     /// <summary>Advances one frame of the round timer while the round is live.</summary>
@@ -93,6 +96,7 @@ public sealed class FightState
     {
         _data.Span[OffGlobal + (int)Global.RoundState] = 1;
         _data.Span[OffGlobal + (int)Global.Winner] = winner;
+        _data.Span[OffGlobal + (int)Global.RoundEndFrame] = Frame;
     }
 
     // ------------------------------------------------------------------ per-fighter accessors
