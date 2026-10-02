@@ -23,6 +23,19 @@ public partial class OptionsMenu : Control
         };
         UiKit.Row(column, "Presentation", view);
 
+        var stages = new OptionButton();
+        stages.AddItem("Default arena");
+        var names = Stages.StageLoader.List();
+        foreach (string name in names) stages.AddItem(name);
+        int saved = names.ToList().IndexOf(GameSettings.StageName);
+        stages.Selected = saved < 0 ? 0 : saved + 1;
+        stages.ItemSelected += i =>
+        {
+            GameSettings.StageName = i == 0 ? "" : names[(int)i - 1];
+            GameSettings.Save();
+        };
+        UiKit.Row(column, "Stage (offline modes)", stages);
+
         var volume = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.05, Value = GameSettings.MasterVolume };
         volume.ValueChanged += v =>
         {
@@ -37,7 +50,8 @@ public partial class OptionsMenu : Control
         AddToggle(column, "Show hitboxes", GameSettings.ShowHitboxes, v => GameSettings.ShowHitboxes = v);
         AddToggle(column, "Debug overlay (F3)", GameSettings.ShowDebugOverlay, v => GameSettings.ShowDebugOverlay = v);
 
-        UiKit.Text(column, "P1: WASD + J K L (attacks) I (special) U/O (macro)\nP2: arrows + 1 2 3 (attacks) 4 (special) 5/6 (macro)\nGamepad: D-pad / left stick, A B X Y\nIn a fight: F1 hitboxes / F2 view / F3 debug", 16);
+        UiKit.Text(column, "Every key and pad button can be remapped in CONTROLS.\nIn a fight: F1 hitboxes / F2 view / F3 debug / Esc pause", 16);
+        UiKit.Button(column, "CONTROLS", () => UiKit.GoTo(this, GameSession.ControlsScene));
         var back = UiKit.Button(column, "BACK", () => UiKit.GoTo(this, GameSession.MainMenuScene));
         back.GrabFocus();
     }

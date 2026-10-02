@@ -14,6 +14,20 @@ public abstract partial class FightPresentation : Node
     /// <summary>Draw hurtboxes / hitboxes / pushboxes on top of the fighters.</summary>
     public bool ShowBoxes { get; set; }
 
+    /// <summary>Background colour requested by the stage (null = the default look).</summary>
+    public Color? StageBackground { get; set; }
+
+    /// <summary>Colour of a stage element by behaviour (shared by every view).</summary>
+    protected static Color PlatformColor(PlatformSystem.PlatformType type) => type switch
+    {
+        PlatformSystem.PlatformType.Hazard => new Color(0.95f, 0.2f, 0.15f, 0.55f),
+        PlatformSystem.PlatformType.Bounce => new Color(0.3f, 0.85f, 0.4f),
+        PlatformSystem.PlatformType.Conveyor => new Color(0.95f, 0.8f, 0.25f),
+        PlatformSystem.PlatformType.PassThrough => new Color(0.45f, 0.65f, 0.95f, 0.85f),
+        PlatformSystem.PlatformType.Moving => new Color(0.75f, 0.55f, 0.95f),
+        _ => new Color(0.6f, 0.52f, 0.45f),
+    };
+
     /// <summary>Attaches the simulation to display. Call again after a rematch.</summary>
     public abstract void Bind(FightSimulation sim);
 

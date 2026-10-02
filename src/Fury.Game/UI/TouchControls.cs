@@ -35,6 +35,7 @@ public sealed partial class TouchControls : CanvasLayer
     ];
 
     private readonly List<(TouchScreenButton Node, PadButton Def, bool Left)> _buttons = [];
+    private bool _connected;
     private Texture2D _disc = null!;
     private Texture2D _discPressed = null!;
 
@@ -58,12 +59,13 @@ public sealed partial class TouchControls : CanvasLayer
         foreach (var def in ActionButtons) Add(def, left: false);
 
         GetViewport().SizeChanged += Layout;
+        _connected = true;
         Layout();
     }
 
     public override void _ExitTree()
     {
-        if (GetViewport() != null) GetViewport().SizeChanged -= Layout;
+        if (_connected && GetViewport() != null) GetViewport().SizeChanged -= Layout;
     }
 
     private void Add(PadButton def, bool left)

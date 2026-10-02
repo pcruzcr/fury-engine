@@ -80,4 +80,53 @@ public class StageEditorTests
         Assert.Equal(100, hazard.Height);
         Assert.Equal(25, hazard.Damage);
     }
+
+    private static StageData Valid() => new()
+    {
+        Name = "ok",
+        Width = 1920,
+        Height = 1080,
+        Gravity = 1f,
+        BackgroundColor = new ColorRgba(0.1f, 0.1f, 0.2f),
+        Platforms = [new PlatformData { Width = 200, Height = 20 }],
+    };
+
+    [Fact]
+    public void Validate_AcceptsAWellFormedStage()
+    {
+        Valid().Validate();
+    }
+
+    [Fact]
+    public void Validate_RejectsEveryOutOfRangeValue()
+    {
+        void Rejects(Action<StageData> mutate)
+        {
+            var stage = Valid();
+            mutate(stage);
+            Assert.Throws<System.IO.InvalidDataException>(stage.Validate);
+        }
+
+        Rejects(s => s.Width = 10);
+        Rejects(s => s.Height = 10);
+        Rejects(s => s.Gravity = 0f);
+        Rejects(s => s.Gravity = 9f);
+        Rejects(s => s.Platforms[0].Width = 1);
+        Rejects(s => s.Platforms[0].Kind = (PlatformKind)99);
+        Rejects(s => s.Platforms[0].MoveFrames = 1);
+        Rejects(s => s.Platforms[0].X = 999_999);
+        Rejects(s => s.Hazards.Add(new HazardData { Width = 50, Height = 50, Damage = 9999 }));
+        Rejects(s =>
+        {
+            for (int i = 0; i < StageData.MaxElements; i++) s.Platforms.Add(new PlatformData { Width = 100, Height = 20 });
+        });
+    }
+
+    [Fact]
+    public void FromJson_RunsTheValidation_SoAHandEditedFileCannotBreakTheGame()
+    {
+        var stage = Valid();
+        string json = StageSerializer.ToJson(stage).Replace("\"Gravity\": 1", "\"Gravity\": 50");
+        Assert.Throws<System.IO.InvalidDataException>(() => StageSerializer.FromJson(json));
+    }
 }

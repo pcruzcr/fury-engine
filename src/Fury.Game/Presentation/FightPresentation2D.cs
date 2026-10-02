@@ -23,6 +23,8 @@ public sealed partial class FightPresentation2D : FightPresentation
     private ParticlePool2D _particles = null!;
     private readonly FighterShape2D[] _fighters = new FighterShape2D[2];
     private readonly Polygon2D[] _projectiles = new Polygon2D[FightState.ProjectileSlots];
+    private readonly List<Polygon2D> _stageShapes = [];
+    private StageModule? _stageModule;
     private ShaderMaterial _backdropMaterial = null!;
     private float _shake;
     private float _zoom = 1f;
@@ -66,6 +68,7 @@ public sealed partial class FightPresentation2D : FightPresentation
     {
         _sim = sim;
         _overlay?.Bind(sim);
+        BuildStageShapes(sim);
         int limit = (int)(sim.Config.StageHalfWidth.ToFloat() * WorldProjection.PixelsPerUnit) + 80;
         if (_camera != null)
         {
@@ -86,6 +89,7 @@ public sealed partial class FightPresentation2D : FightPresentation
         var state = _sim.State;
         for (int f = 0; f < 2; f++) _fighters[f].Apply(_sim, f);
         SyncProjectiles();
+        SyncStage();
 
         if (_overlay != null)
         {
@@ -94,6 +98,40 @@ public sealed partial class FightPresentation2D : FightPresentation
         }
 
         UpdateCamera(state.GetX(0), state.GetX(1));
+    }
+
+    private void BuildStageShapes(FightSimulation sim)
+    {
+        foreach (var shape in _stageShapes) shape.QueueFree();
+        _stageShapes.Clear();
+        _stageModule = sim.GetModule<StageModule>();
+        if (_stageModule == null || _world == null) return;
+
+        for (int i = 0; i < _stageModule.Count; i++)
+        {
+            var shape = new Polygon2D
+            {
+                Polygon = [new Vector2(-0.5f, -0.5f), new Vector2(0.5f, -0.5f), new Vector2(0.5f, 0.5f), new Vector2(-0.5f, 0.5f)],
+                Color = PlatformColor(_stageModule.TypeOf(i)),
+                ZIndex = -3,
+            };
+            _world.AddChild(shape);
+            _stageShapes.Add(shape);
+        }
+    }
+
+    private void SyncStage()
+    {
+        if (_stageModule == null) return;
+        int frame = System.Math.Max(0, _sim!.Frame - 1); // the frame the fighters were just carried with
+        for (int i = 0; i < _stageShapes.Count; i++)
+        {
+            var (left, right, top, bottom) = _stageModule.BoundsAt(i, frame);
+            var topLeft = WorldProjection.ToScreen(left, top);
+            var bottomRight = WorldProjection.ToScreen(right, bottom);
+            _stageShapes[i].Position = (topLeft + bottomRight) * 0.5f;
+            _stageShapes[i].Scale = bottomRight - topLeft;
+        }
     }
 
     private void SyncProjectiles()
@@ -173,6 +211,11 @@ public sealed partial class FightPresentation2D : FightPresentation
                 """,
         };
         _backdropMaterial = new ShaderMaterial { Shader = shader };
+        if (StageBackground is Color stageColor)
+        {
+            _backdropMaterial.SetShaderParameter("top_color", stageColor);
+            _backdropMaterial.SetShaderParameter("bottom_color", stageColor.Lerp(new Color(0.35f, 0.2f, 0.3f), 0.5f));
+        }
         var backdrop = new ColorRect
         {
             Name = "Backdrop",

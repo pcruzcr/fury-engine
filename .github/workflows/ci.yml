@@ -40,14 +40,13 @@ jobs:
   # Native AOT analysis of the engine core (iOS and consoles forbid JIT): warnings are errors.
   aot-analysis:
     runs-on: ubuntu-latest
-    continue-on-error: true # validated locally up to native codegen; the Linux link step is not verified yet
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
       - name: Publish core as Native AOT (analysis + compile)
-        run: dotnet publish cert/cert.csproj -c Release -r linux-x64 -p:PublishAot=true -o aot-out
+        run: dotnet publish cert/cert.csproj -c Release -r linux-x64 -p:PublishAot=true -p:CppCompilerAndLinker=gcc -o aot-out
       - name: Run the AOT binary (determinism must hold without the JIT)
         run: ./aot-out/cert
 

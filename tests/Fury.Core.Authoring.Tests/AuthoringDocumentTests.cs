@@ -19,7 +19,7 @@ public class EditorDocumentTests
             Gravity = 1.5f,
             BackgroundColor = new ColorRgba(0.2f, 0.3f, 0.4f, 1f),
         };
-        stage.Platforms.Add(new PlatformData { X = 1, Y = 2, Width = 3, Height = 4 });
+        stage.Platforms.Add(new PlatformData { X = 1, Y = 2, Width = 30, Height = 40, Kind = PlatformKind.Bounce, Strength = 70, MoveToX = 5, MoveToY = 6, MoveFrames = 90 });
         stage.Hazards.Add(new HazardData { X = 5, Y = 6, Width = 7, Height = 8, Damage = 9 });
 
         var back = StageSerializer.FromJson(StageSerializer.ToJson(stage));
@@ -28,7 +28,9 @@ public class EditorDocumentTests
         Assert.Equal(2000, back.Width);
         Assert.Equal(1.5f, back.Gravity);
         Assert.Equal(0.3f, back.BackgroundColor.G, 3);
-        Assert.Equal(3, back.Platforms[0].Width);
+        Assert.Equal(30, back.Platforms[0].Width);
+        Assert.Equal(PlatformKind.Bounce, back.Platforms[0].Kind);
+        Assert.Equal((70, 5, 6, 90), (back.Platforms[0].Strength, back.Platforms[0].MoveToX, back.Platforms[0].MoveToY, back.Platforms[0].MoveFrames));
         Assert.Equal(9, back.Hazards[0].Damage);
     }
 

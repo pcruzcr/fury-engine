@@ -424,14 +424,14 @@ public class NetplayTests
     }
 
     [Fact]
-    public void UdpHandshake_TwoPeers_AgreeOnMirroredKeys_AndExchangeSetup()
+    public async Task UdpHandshake_TwoPeers_AgreeOnMirroredKeys_AndExchangeSetup()
     {
         int pa = FreePort(), pb = FreePort();
         byte[] token = [9, 9, 9];
         var taskA = Task.Run(() => UdpHandshake.Run(pa, "127.0.0.1", pb, "glen", 0x1111, 0xAAAA, token, TimeSpan.FromSeconds(5)));
         var taskB = Task.Run(() => UdpHandshake.Run(pb, "127.0.0.1", pa, "kira", 0x1111, 0xBBBB, token, TimeSpan.FromSeconds(5)));
-        var (keysA, peerOfA) = taskA.GetAwaiter().GetResult();
-        var (keysB, peerOfB) = taskB.GetAwaiter().GetResult();
+        var (keysA, peerOfA) = await taskA;
+        var (keysB, peerOfB) = await taskB;
 
         Assert.Equal(keysA.SendKey, keysB.ReceiveKey);
         Assert.Equal(keysA.ReceiveKey, keysB.SendKey);

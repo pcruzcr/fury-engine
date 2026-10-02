@@ -16,7 +16,7 @@ run_scene() {
   echo "== $scene $* =="
   local out
   out=$("$GODOT" --headless --path . "$scene" --quit-after 300 "$@" 2>&1) || true
-  if echo "$out" | grep -E "SCRIPT ERROR|Unhandled exception|Cannot instantiate|Failed to load|Parse Error" ; then
+  if echo "$out" | grep -E "^ERROR:|SCRIPT ERROR|Unhandled exception|Cannot instantiate|Failed to load|Parse Error" ; then
     echo "FAIL: $scene"; fail=1
   fi
 }
@@ -24,6 +24,7 @@ run_scene() {
 run_scene res://scenes/boot/boot.tscn
 run_scene res://scenes/menu/main_menu.tscn
 run_scene res://scenes/menu/options.tscn
+run_scene res://scenes/menu/controls.tscn
 run_scene res://scenes/menu/online.tscn
 run_scene res://scenes/menu/replays.tscn
 run_scene res://scenes/select/character_select.tscn

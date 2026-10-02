@@ -39,6 +39,9 @@ public static class GameSettings
     /// <summary>Show the on-screen touch pad even without a touch screen (testing; <c>--fury-touch</c>).</summary>
     public static bool ForceTouchControls { get; set; }
 
+    /// <summary>Saved stage to fight on in the offline modes (a name from <c>user://stages</c>); empty = the default arena.</summary>
+    public static string StageName { get; set; } = "";
+
     /// <summary>Master volume, linear 0..1.</summary>
     public static float MasterVolume { get; set; } = 0.8f;
 
@@ -53,6 +56,7 @@ public static class GameSettings
         ReduceFlashes = (bool)cfg.GetValue(Section, "reduce_flashes", ReduceFlashes);
         ShowDebugOverlay = (bool)cfg.GetValue(Section, "debug_overlay", ShowDebugOverlay);
         ShowHitboxes = (bool)cfg.GetValue(Section, "hitboxes", ShowHitboxes);
+        StageName = cfg.GetValue(Section, "stage", "").AsString();
         MasterVolume = Mathf.Clamp((float)cfg.GetValue(Section, "master_volume", MasterVolume), 0f, 1f);
     }
 
@@ -64,6 +68,7 @@ public static class GameSettings
         cfg.SetValue(Section, "reduce_flashes", ReduceFlashes);
         cfg.SetValue(Section, "debug_overlay", ShowDebugOverlay);
         cfg.SetValue(Section, "hitboxes", ShowHitboxes);
+        cfg.SetValue(Section, "stage", StageName);
         cfg.SetValue(Section, "master_volume", MasterVolume);
         cfg.Save(Path);
     }

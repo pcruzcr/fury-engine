@@ -59,18 +59,24 @@ public sealed partial class FightDirector : Node
     private readonly int[] _wins = new int[2];
     private int _trainingIdleFrames;
     private string _statusText = "";
+    private UI.PauseMenu? _pauseMenu;
+    private bool _paused;
+    private Stages.PlayableStage? _stage;
 
     public override void _Ready()
     {
         GameSettings.ApplyAudio();
         Tools.CharacterMods.LoadAll();
+        InputBindings.Load();
         ParseUserArgs();
+        LoadStage();
 
         _hud = new Hud();
         _audio = new AudioManager();
         AddChild(_audio);
         AddChild(_hud);
         if (GameSession.Mode != GameMode.Replay) AddChild(new UI.TouchControls());
+        if (GameSession.Mode is GameMode.Arcade or GameMode.Versus or GameMode.Training) BuildPauseMenu();
 
         SetView(GameSettings.ViewMode);
 
@@ -131,6 +137,7 @@ public sealed partial class FightDirector : Node
             else if (arg.StartsWith("--fury-remote=", StringComparison.Ordinal)) GameSession.NetRemoteHost = arg[14..];
             else if (arg.StartsWith("--fury-port=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(12), out int port)) GameSession.NetPort = port;
             else if (arg.StartsWith("--fury-character=", StringComparison.Ordinal)) GameSession.P1CharacterId = arg[17..];
+            else if (arg.StartsWith("--fury-stage=", StringComparison.Ordinal)) GameSettings.StageName = arg[13..];
             else if (arg.StartsWith("--fury-round-seconds=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(21), out int seconds) && seconds > 0) GameSession.RoundSecondsOverride = seconds;
             else if (arg.StartsWith("--fury-seed=", StringComparison.Ordinal) && ulong.TryParse(arg.AsSpan(12), out ulong s)) seed = s;
         }
@@ -167,14 +174,26 @@ public sealed partial class FightDirector : Node
 
         _view = mode == ViewMode.Flat2D ? new FightPresentation2D() : new FightPresentation3D { Cinematic = mode == ViewMode.Cinematic3D };
         _view.ShowBoxes = GameSettings.ShowHitboxes || GameSession.Mode is GameMode.Training or GameMode.Replay;
+        _view.StageBackground = _stage?.Background;
         AddChild(_view);
         MoveChild(_view, 0); // behind the HUD
         if (_sim != null) _view.Bind(_sim);
     }
 
+    /// <summary>
+    /// Custom stages only apply to the local modes: online peers, replays and the netcode fingerprints know the default arena,
+    /// so those always use it.
+    /// </summary>
+    private void LoadStage()
+    {
+        if (GameSession.Mode is not (GameMode.Arcade or GameMode.Versus or GameMode.Training) || GameSettings.StageName.Length == 0) return;
+        var data = Stages.StageLoader.TryLoad(GameSettings.StageName);
+        if (data != null) _stage = Stages.StageLoader.Build(data, FightConfig.Default());
+    }
+
     private FightConfig BuildConfig()
     {
-        var cfg = FightConfig.Default();
+        var cfg = _stage?.Config ?? FightConfig.Default();
         if (GameSession.RoundSecondsOverride > 0) cfg = cfg with { RoundSeconds = GameSession.RoundSecondsOverride };
         return GameSession.Mode == GameMode.Training ? cfg with { RoundSeconds = 9999 } : cfg;
     }
@@ -183,12 +202,14 @@ public sealed partial class FightDirector : Node
     {
         var cfg = BuildConfig();
         _events.Clear();
-        _sim = new FightSimulation(_p1, _p2, cfg, _events);
+        var stageModule = _stage?.CreateModule();
+        _sim = new FightSimulation(_p1, _p2, cfg, _events, modules: stageModule != null ? [stageModule] : null);
         _view.Bind(_sim);
         _hud.Setup(_p1.Id, _p2.Id, cfg.MaxHealth);
         _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
 
-        bool record = GameSession.Mode is GameMode.Arcade or GameMode.Versus;
+        // Replays do not carry the stage geometry, so fights on a custom stage are not recorded.
+        bool record = GameSession.Mode is GameMode.Arcade or GameMode.Versus && _stage == null;
         _recorder = record ? new ReplayRecorder(_sim, ReplayHeader.For(_p1, _p2, cfg)) : null;
 
         EnterPhase(Phase.Intro);
@@ -249,6 +270,7 @@ public sealed partial class FightDirector : Node
     public override void _PhysicsProcess(double delta)
     {
         _ticks++;
+        if (_paused) return; // the simulation only advances while the game is running: pausing costs nothing and cannot desync
         switch (_phase)
         {
             case Phase.Connecting:
@@ -559,6 +581,33 @@ public sealed partial class FightDirector : Node
         }
     }
 
+    // ------------------------------------------------------------------ pause
+
+    private void BuildPauseMenu()
+    {
+        _pauseMenu = new UI.PauseMenu();
+        AddChild(_pauseMenu);
+        _pauseMenu.ResumeRequested += TogglePause;
+        _pauseMenu.RestartRequested += () =>
+        {
+            TogglePause();
+            _wins[0] = 0;
+            _wins[1] = 0;
+            _round = 1;
+            StartRound();
+        };
+        _pauseMenu.CharacterSelectRequested += () => GetTree().ChangeSceneToFile(GameSession.CharacterSelectScene);
+        _pauseMenu.MainMenuRequested += () => GetTree().ChangeSceneToFile(GameSession.MainMenuScene);
+    }
+
+    private void TogglePause()
+    {
+        if (_pauseMenu == null) return;
+        _paused = !_paused;
+        if (_paused) _pauseMenu.Open();
+        else _pauseMenu.Close();
+    }
+
     // ------------------------------------------------------------------ input
 
     public override void _UnhandledInput(InputEvent @event)
@@ -568,7 +617,8 @@ public sealed partial class FightDirector : Node
         switch (key.Keycode)
         {
             case Key.Escape:
-                GetTree().ChangeSceneToFile(GameSession.MainMenuScene);
+                if (_pauseMenu != null && _phase is Phase.Intro or Phase.Fighting or Phase.RoundOver) TogglePause();
+                else GetTree().ChangeSceneToFile(GameSession.MainMenuScene);
                 break;
             case Key.Enter or Key.KpEnter when _phase == Phase.MatchOver:
                 GetTree().ChangeSceneToFile(GameSession.MainMenuScene);

@@ -54,7 +54,7 @@ public static class StageSerializer
         {
             throw new InvalidDataException("Stage file is empty or incomplete.");
         }
-        return new StageData
+        var stage = new StageData
         {
             Name = dto.Name ?? "",
             Width = dto.Width,
@@ -64,6 +64,8 @@ public static class StageSerializer
             Platforms = dto.Platforms ?? new List<PlatformData>(),
             Hazards = dto.Hazards ?? new List<HazardData>(),
         };
+        stage.Validate();
+        return stage;
     }
 
     /// <summary>

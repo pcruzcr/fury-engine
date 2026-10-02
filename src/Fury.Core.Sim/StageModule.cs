@@ -39,6 +39,9 @@ public sealed class StageModule : SimModule
     {
     }
 
+    /// <summary>Behaviour of platform <paramref name="index"/> (for presentation).</summary>
+    public PlatformSystem.PlatformType TypeOf(int index) => _platforms[index].Type;
+
     /// <summary>Centre of platform <paramref name="index"/> at <paramref name="frame"/>.</summary>
     public (Fp X, Fp Y) CenterAt(int index, int frame)
     {

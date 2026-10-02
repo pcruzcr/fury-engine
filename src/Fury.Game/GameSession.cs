@@ -22,6 +22,7 @@ public static class GameSession
     public const string CharacterSelectScene = "res://scenes/select/character_select.tscn";
     public const string FightScene = "res://scenes/game/fight.tscn";
     public const string OptionsScene = "res://scenes/menu/options.tscn";
+    public const string ControlsScene = "res://scenes/menu/controls.tscn";
     public const string OnlineScene = "res://scenes/menu/online.tscn";
     public const string ReplaysScene = "res://scenes/menu/replays.tscn";
     public const string FrameDataEditorScene = "res://scenes/tools/frame_data_editor.tscn";

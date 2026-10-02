@@ -72,14 +72,13 @@ public static class InputAdapter
         if (Input.IsJoyButtonPressed(device, JoyButton.DpadRight) || x > StickDeadzone) bits |= (ushort)InputButton.Right;
         if (Input.IsJoyButtonPressed(device, JoyButton.DpadUp) || y < -StickDeadzone) bits |= (ushort)InputButton.Up;
         if (Input.IsJoyButtonPressed(device, JoyButton.DpadDown) || y > StickDeadzone) bits |= (ushort)InputButton.Down;
-        if (Input.IsJoyButtonPressed(device, JoyButton.A)) bits |= (ushort)InputButton.Light;
-        if (Input.IsJoyButtonPressed(device, JoyButton.B)) bits |= (ushort)InputButton.Medium;
-        if (Input.IsJoyButtonPressed(device, JoyButton.X)) bits |= (ushort)InputButton.Heavy;
-        if (Input.IsJoyButtonPressed(device, JoyButton.Y)) bits |= (ushort)InputButton.Special;
-        if (Input.IsJoyButtonPressed(device, JoyButton.LeftShoulder)) bits |= (ushort)InputButton.Macro1;
-        if (Input.IsJoyButtonPressed(device, JoyButton.RightShoulder) || Input.IsJoyButtonPressed(device, JoyButton.Start)) bits |= (ushort)InputButton.Macro2;
-        if (Input.IsJoyButtonPressed(device, JoyButton.Back)) bits |= (ushort)InputButton.Macro3;
-        if (Input.IsJoyButtonPressed(device, JoyButton.RightStick)) bits |= (ushort)InputButton.Macro4;
+
+        // Fight buttons follow the remappable pad layout (see InputBindings).
+        var layout = InputBindings.PadLayout;
+        for (int i = 0; i < layout.Count; i++)
+        {
+            if (Input.IsJoyButtonPressed(device, layout[i].Button)) bits |= (ushort)layout[i].Input;
+        }
         return bits;
     }
 }

@@ -26,6 +26,8 @@ public sealed partial class FightPresentation3D : FightPresentation
     private readonly FighterShape3D[] _fighters = new FighterShape3D[2];
     private readonly MeshInstance3D[] _hitboxMeshes = new MeshInstance3D[2];
     private readonly MeshInstance3D[] _projectiles = new MeshInstance3D[FightState.ProjectileSlots];
+    private readonly List<MeshInstance3D> _stageMeshes = [];
+    private StageModule? _stageModule;
     private float _shake;
     private float _orbit;
     private Vector3 _lookAt = new(0, 1.2f, 0);
@@ -42,7 +44,7 @@ public sealed partial class FightPresentation3D : FightPresentation
             Environment = new Godot.Environment
             {
                 BackgroundMode = Godot.Environment.BGMode.Color,
-                BackgroundColor = new Color(0.07f, 0.08f, 0.16f),
+                BackgroundColor = StageBackground ?? new Color(0.07f, 0.08f, 0.16f),
                 AmbientLightSource = Godot.Environment.AmbientSource.Color,
                 AmbientLightColor = new Color(0.55f, 0.58f, 0.7f),
                 AmbientLightEnergy = 0.8f,
@@ -94,6 +96,7 @@ public sealed partial class FightPresentation3D : FightPresentation
     {
         _sim = sim;
         for (int f = 0; f < 2; f++) _fighters[f].SetCharacter(sim.Data(f).Id);
+        BuildStageMeshes(sim);
         Sync();
     }
 
@@ -126,7 +129,46 @@ public sealed partial class FightPresentation3D : FightPresentation
             _projectiles[slot].Scale = new Vector3(Mathf.Abs(b.X - a.X), Mathf.Abs(b.Y - a.Y), 0.6f);
         }
 
+        SyncStage();
         UpdateCamera();
+    }
+
+    private void BuildStageMeshes(FightSimulation sim)
+    {
+        foreach (var mesh in _stageMeshes) mesh.QueueFree();
+        _stageMeshes.Clear();
+        _stageModule = sim.GetModule<StageModule>();
+        if (_stageModule == null || _world == null) return;
+
+        for (int i = 0; i < _stageModule.Count; i++)
+        {
+            var color = PlatformColor(_stageModule.TypeOf(i));
+            var mesh = new MeshInstance3D
+            {
+                Mesh = new BoxMesh { Size = Vector3.One },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = color,
+                    Transparency = color.A < 1f ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled,
+                },
+            };
+            _world.AddChild(mesh);
+            _stageMeshes.Add(mesh);
+        }
+    }
+
+    private void SyncStage()
+    {
+        if (_stageModule == null) return;
+        int frame = System.Math.Max(0, _sim!.Frame - 1);
+        for (int i = 0; i < _stageMeshes.Count; i++)
+        {
+            var (left, right, top, bottom) = _stageModule.BoundsAt(i, frame);
+            var a = WorldProjection.ToWorld3D(left, top);
+            var b = WorldProjection.ToWorld3D(right, bottom);
+            _stageMeshes[i].Position = (a + b) * 0.5f;
+            _stageMeshes[i].Scale = new Vector3(System.Math.Abs(b.X - a.X), System.Math.Abs(b.Y - a.Y), 1.2f);
+        }
     }
 
     public override void SpawnImpact(int fighter, ImpactKind kind)
