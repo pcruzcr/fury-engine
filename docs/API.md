@@ -37,6 +37,8 @@ sim.Restore(snapshot);             // rollback; sim.SnapshotWords = tamaño del 
   `ReachBonusRaw`, `TryGetSupport`, `BounceVyRaw`, `GroundPush`, `ActiveCharacter`, `TrySubstituteKo`, `OnHit`, `OnThrow`).
   `WeaponModule`, `ArcanaModule`, `TransformationModule`, `StageModule`, `TagTeamModule`, `FinisherModule`, `HoldModule`.
 - IA: `CpuBrain(seed, aggression)`, `DummyBrain`, `ScriptedInputProvider`; `IInputProvider.Poll(frame, in FightView)`.
+- Entrenamiento: `TrainingDummy` (`Mode`, `Cycle()`, `Attach(sim, slot)`) y `FrameAdvantageTracker.Update(state)` →
+  `LastHit` / `LastBlock` (`AdvantageResult`: atacante, bloqueado, frames, derribo).
 
 ## Fury.Core.Rollback
 
@@ -81,7 +83,7 @@ Relay: `RelayServer(port, options)` (`Start()` / `Run(token)`, límites de salas
 ## Fury.Game (Godot)
 
 - `FightDirector` — flujo de la sesión (intro, rondas, modos). `GameSession`, `GameSettings`, `InputAdapter`.
-- `Presentation/` — `FightPresentation` (2D / 2.5D / 3D), `WorldProjection`, `Hud`, `AudioManager`, `ParticlePool2D/3D`,
+- `Presentation/` — `FightPresentation` (2D / 2.5D / 3D), `FighterPoser` + `PuppetBody2D/3D` (luchador procedural), `TrainingOverlay`, `WorldProjection`, `Hud`, `AudioManager`, `ParticlePool2D/3D`,
   `FightEventQueue` (tracer).
 - `Net/OnlineMatch` (directo o relay), `InputBindings` (controles reasignables), `Stages/StageLoader` (documento → `StageModule`),
   `UI/*` (menús, controles, pausa, táctil), `Tools/*` (editores de frame data y stages).

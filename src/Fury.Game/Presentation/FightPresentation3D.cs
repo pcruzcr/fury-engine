@@ -95,7 +95,11 @@ public sealed partial class FightPresentation3D : FightPresentation
     public override void Bind(FightSimulation sim)
     {
         _sim = sim;
-        for (int f = 0; f < 2; f++) _fighters[f].SetCharacter(sim.Data(f).Id);
+        for (int f = 0; f < 2; f++)
+        {
+            _fighters[f].SetCharacter(sim.Data(f).Id);
+            _fighters[f].Reset();
+        }
         BuildStageMeshes(sim);
         Sync();
     }
@@ -249,12 +253,13 @@ public sealed partial class FightPresentation3D : FightPresentation
         });
     }
 
-    /// <summary>Placeholder fighter: a capsule scaled to the hurtbox plus a nose that shows the facing direction.</summary>
+    /// <summary>Default fighter: the procedural puppet as meshes (see <see cref="FighterPoser"/>), replaced by the character's own scene when it ships one.</summary>
     private sealed class FighterShape3D
     {
         private readonly Node3D _root = new();
-        private readonly MeshInstance3D _body;
-        private readonly MeshInstance3D _nose;
+        private readonly PuppetBody3D _puppet;
+        private readonly PoseSmoother _smoother = new();
+        private readonly Vector2[] _target = new Vector2[FighterPoser.JointCount];
         private readonly StandardMaterial3D _material;
         private Node? _visual;
         private string _characterId = "";
@@ -262,15 +267,9 @@ public sealed partial class FightPresentation3D : FightPresentation
         public FighterShape3D(Node parent, int index)
         {
             _root.Name = $"Fighter{index + 1}";
-            _material = new StandardMaterial3D { AlbedoColor = index == 0 ? new Color(0.25f, 0.5f, 1f) : new Color(1f, 0.3f, 0.3f), Roughness = 0.6f };
-            _body = new MeshInstance3D { Mesh = new CapsuleMesh { Radius = 0.3f, Height = 1f }, MaterialOverride = _material };
-            _nose = new MeshInstance3D
-            {
-                Mesh = new BoxMesh { Size = new Vector3(0.28f, 0.14f, 0.14f) },
-                MaterialOverride = new StandardMaterial3D { AlbedoColor = Colors.White },
-            };
-            _root.AddChild(_body);
-            _root.AddChild(_nose);
+            _puppet = new PuppetBody3D(index == 0 ? new Color(0.25f, 0.5f, 1f) : new Color(1f, 0.3f, 0.3f));
+            _material = _puppet.BodyMaterial;
+            _root.AddChild(_puppet);
             parent.AddChild(_root);
         }
 
@@ -281,25 +280,29 @@ public sealed partial class FightPresentation3D : FightPresentation
             _visual?.QueueFree();
             _visual = TryInstanceCharacterScene(id, "visual_3d.tscn");
             if (_visual != null) _root.AddChild(_visual);
-            _body.Visible = _visual == null;
-            _nose.Visible = _visual == null;
+            _puppet.Visible = _visual == null;
+            _smoother.Reset();
         }
+
+        /// <summary>The next pose snaps instead of blending (new round or rematch).</summary>
+        public void Reset() => _smoother.Reset();
 
         public void Apply(FightSimulation sim, int f)
         {
             var s = sim.State;
-            sim.GetHurtbox(f, out _, out var minY, out _, out var maxY);
-            float height = Mathf.Max((maxY - minY).ToFloat() * WorldProjection.MetersPerUnit, 0.5f);
             int facing = s.GetFacing(f);
 
             _root.Position = WorldProjection.ToWorld3D(s.GetX(f), s.GetY(f));
             _root.RotationDegrees = new Vector3(0, facing > 0 ? 0f : 180f, 0);
 
-            ((CapsuleMesh)_body.Mesh).Height = height;
-            _body.Position = new Vector3(0, height * 0.5f, 0);
-            _nose.Position = new Vector3(0.28f, height * 0.85f, 0f);
-
             int state = s.GetStateId(f);
+            if (_visual == null)
+            {
+                FighterPoser.Compute(sim, f, _target);
+                _smoother.Blend(_target, state == FighterStateId.Attack ? 1f : 0.55f);
+                _puppet.SetPose(_smoother.Pose);
+            }
+
             _material.EmissionEnabled = state is FighterStateId.Attack or FighterStateId.Hitstun or FighterStateId.Blockstun;
             _material.Emission = state switch
             {

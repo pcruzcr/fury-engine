@@ -77,7 +77,11 @@ public sealed partial class FightPresentation2D : FightPresentation
             _camera.LimitTop = -200;
             _camera.LimitBottom = (int)WorldProjection.GroundScreenY + 160;
         }
-        for (int f = 0; f < 2; f++) _fighters[f].SetCharacter(sim.Data(f).Id);
+        for (int f = 0; f < 2; f++)
+        {
+            _fighters[f].SetCharacter(sim.Data(f).Id);
+            _fighters[f].Reset();
+        }
         Sync();
         _camera?.ResetSmoothing();
         if (_camera != null) _camera.Position = new Vector2(0, 270);
@@ -250,12 +254,13 @@ public sealed partial class FightPresentation2D : FightPresentation
         _world.AddChild(line);
     }
 
-    /// <summary>Placeholder fighter: a hurtbox-sized body, a facing marker and an optional character scene.</summary>
+    /// <summary>Default fighter: the procedural puppet (see <see cref="FighterPoser"/>), replaced by the character's own scene when it ships one.</summary>
     private sealed class FighterShape2D
     {
         private readonly Node2D _root = new();
-        private readonly Polygon2D _body;
-        private readonly Polygon2D _face;
+        private readonly PuppetBody2D _puppet;
+        private readonly PoseSmoother _smoother = new();
+        private readonly Vector2[] _target = new Vector2[FighterPoser.JointCount];
         private Node? _visual;
         private string _characterId = "";
 
@@ -263,10 +268,8 @@ public sealed partial class FightPresentation2D : FightPresentation
         {
             _root.Name = $"Fighter{index + 1}";
             _root.ZIndex = 5 + index;
-            _body = UnitRect(index == 0 ? new Color(0.25f, 0.5f, 1f) : new Color(1f, 0.3f, 0.3f));
-            _face = UnitRect(new Color(1f, 1f, 1f, 0.9f));
-            _root.AddChild(_body);
-            _root.AddChild(_face);
+            _puppet = new PuppetBody2D(index == 0 ? new Color(0.25f, 0.5f, 1f) : new Color(1f, 0.3f, 0.3f));
+            _root.AddChild(_puppet);
             parent.AddChild(_root);
         }
 
@@ -277,29 +280,31 @@ public sealed partial class FightPresentation2D : FightPresentation
             _visual?.QueueFree();
             _visual = TryInstanceCharacterScene(id, "visual_2d.tscn");
             if (_visual != null) _root.AddChild(_visual);
-            _body.Visible = _visual == null;
-            _face.Visible = _visual == null;
+            _puppet.Visible = _visual == null;
+            _smoother.Reset();
         }
+
+        /// <summary>The next pose snaps instead of blending (new round or rematch).</summary>
+        public void Reset() => _smoother.Reset();
 
         public void Apply(FightSimulation sim, int f)
         {
             var s = sim.State;
-            sim.GetHurtbox(f, out var minX, out var minY, out var maxX, out var maxY);
-            float ppu = WorldProjection.PixelsPerUnit;
-            float width = (maxX - minX).ToFloat() * ppu;
-            float height = (maxY - minY).ToFloat() * ppu;
             int facing = s.GetFacing(f);
 
             _root.Position = WorldProjection.ToScreen(s.GetX(f), s.GetY(f));
             _root.Scale = new Vector2(facing, 1f);
 
-            _body.Scale = new Vector2(width, height);
-            _body.Position = new Vector2(-width * 0.5f, -height);
-            _face.Scale = new Vector2(width * 0.35f, height * 0.18f);
-            _face.Position = new Vector2(width * 0.15f, -height * 0.95f);
-
             int state = s.GetStateId(f);
-            _body.Modulate = state switch
+            if (_visual == null)
+            {
+                FighterPoser.Compute(sim, f, _target);
+                // Attacks are drawn exactly on their frame data; everything else eases between poses.
+                _smoother.Blend(_target, state == FighterStateId.Attack ? 1f : 0.55f);
+                _puppet.SetPose(_smoother.Pose);
+            }
+
+            _puppet.Modulate = state switch
             {
                 FighterStateId.Attack => new Color(1f, 0.95f, 0.5f),
                 FighterStateId.Hitstun or FighterStateId.Knockdown => new Color(1f, 0.6f, 0.35f),
@@ -310,11 +315,5 @@ public sealed partial class FightPresentation2D : FightPresentation
 
             PlayAnimation(_visual, StateAnimation(state, s.IsCrouching(f)));
         }
-
-        private static Polygon2D UnitRect(Color color) => new()
-        {
-            Polygon = [new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1)],
-            Color = color,
-        };
     }
 }

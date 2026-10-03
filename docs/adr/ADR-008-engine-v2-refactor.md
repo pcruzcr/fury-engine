@@ -70,11 +70,18 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
 - **Stages**: editor → `user://stages/*.stage` → `StageLoader` (píxeles Y arriba → unidades de sim Y abajo, solo enteros) →
   `StageModule` en la simulación → plataformas, peligros y fondo en las tres vistas. Solo offline: online usa el stage por
   defecto y los replays no guardan geometría.
+- **Visuales por defecto**: `FighterPoser` calcula las articulaciones (IK de dos huesos con estiramiento limitado) a partir del
+  estado, el frame del estado, la velocidad vertical y la frame data del movimiento; `PuppetBody2D` las dibuja con contorno y
+  `PuppetBody3D` las convierte en cilindros y esferas. `PoseSmoother` suaviza las transiciones salvo en los ataques, que se
+  dibujan exactos sobre su frame data. Solo lee la simulación.
+- **Entrenamiento**: `TrainingDummy` (quieto, agachado, salto, guardia alta/baja reactiva alrededor de los frames activos, CPU) y
+  `FrameAdvantageTracker` (ventaja en golpe/bloqueo medida desde el frame de contacto; `KD` si hay derribo) viven en el núcleo y
+  tienen tests; `TrainingOverlay` muestra inputs en notación numpad, frame data y ventaja.
 - **Controles**: `InputBindings` guarda teclado y mando por acción (`user://`), `ControlsMenu` los reasigna y `PauseMenu` (Esc)
   pausa la partida local; online no se puede pausar (la simulación sigue en el rival).
 
 ### Verificación
-- 314 tests + 18 de authoring (incluye el relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
+- 320 tests + 18 de authoring (incluye el relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
   rollback de dos peers, replay y restauración; `tools/godot-smoke.sh` carga todas las escenas y
   `tools/godot-online-smoke.sh` juega una partida real entre dos procesos Godot por UDP (o con `RELAY=1`, a través de un relay)
   y compara hashes. Tests, certificación (hashes idénticos) y smokes también se ejecutaron en Ubuntu 24.04 (WSL).
@@ -83,7 +90,8 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
 ## Límites conocidos (no resueltos)
 - La simulación es de dos luchadores activos en un plano 2D: no hay combate 3D con esquiva lateral ni 4 jugadores.
 - Las plataformas son superficies de aterrizaje unidireccionales (sin colisión lateral).
-- No hay arte, animación ni audio final: las vistas usan formas primitivas hasta que se aporten escenas por personaje.
+- No hay arte, animación ni audio final: sin escenas por personaje, los luchadores son una figura articulada procedural (poses por
+  estado, ataques que alcanzan la hitbox real) y el audio es sintético; está pensada como base legible, no como acabado.
 - El online es conexión directa o por relay con código de sala compartido a mano: no hay matchmaking/lobby, hole punching
   ni reconexión. El relay no se ha probado en Internet real (solo loopback, Windows y Linux).
 - Las rondas (mejor de 3) se gestionan en el director, no dentro de la simulación. Online funciona con una **línea de

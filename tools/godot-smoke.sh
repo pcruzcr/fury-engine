@@ -33,6 +33,7 @@ run_scene res://scenes/tools/stage_editor.tscn
 run_scene res://scenes/game/fight.tscn -- --fury-demo
 run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-view=1
 run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-view=2
+run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-training --fury-dummy=block
 
 if [ "$fail" -ne 0 ]; then echo "SMOKE TEST FAILED"; exit 1; fi
 echo "SMOKE TEST PASSED"

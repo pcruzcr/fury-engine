@@ -1,3 +1,4 @@
+using Fury.Core.Sim;
 using Godot;
 
 namespace Fury.Game.UI;
@@ -8,10 +9,22 @@ namespace Fury.Game.UI;
 /// </summary>
 public sealed partial class PauseMenu : CanvasLayer
 {
+    private readonly bool _training;
     private Control _root = null!;
     private Button _resume = null!;
+    private Button? _dummy;
+
+    public PauseMenu()
+        : this(false)
+    {
+    }
+
+    /// <param name="training">Adds the training dummy button.</param>
+    public PauseMenu(bool training) => _training = training;
 
     public event Action? ResumeRequested;
+
+    public event Action? DummyRequested;
 
     public event Action? RestartRequested;
 
@@ -43,6 +56,7 @@ public sealed partial class PauseMenu : CanvasLayer
         UiKit.Title(column, "PAUSED", 56);
         _resume = UiKit.Button(column, "RESUME", () => ResumeRequested?.Invoke());
         UiKit.Button(column, "RESTART", () => RestartRequested?.Invoke());
+        if (_training) _dummy = UiKit.Button(column, "DUMMY: STAND  (F5)", () => DummyRequested?.Invoke());
         UiKit.Button(column, "CHANGE FIGHTER", () => CharacterSelectRequested?.Invoke());
         UiKit.Button(column, "MAIN MENU", () => MainMenuRequested?.Invoke());
     }
@@ -54,4 +68,10 @@ public sealed partial class PauseMenu : CanvasLayer
     }
 
     public void Close() => _root.Visible = false;
+
+    /// <summary>Shows the dummy's current mode on its button.</summary>
+    public void SetDummyLabel(DummyMode mode)
+    {
+        if (_dummy != null) _dummy.Text = $"DUMMY: {mode.ToString().ToUpperInvariant()}  (F5)";
+    }
 }

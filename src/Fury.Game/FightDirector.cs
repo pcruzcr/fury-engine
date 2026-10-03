@@ -58,6 +58,10 @@ public sealed partial class FightDirector : Node
     private int _round = 1;
     private readonly int[] _wins = new int[2];
     private int _trainingIdleFrames;
+    private TrainingDummy? _dummy;
+    private string _dummyArgument = "";
+    private FrameAdvantageTracker? _advantage;
+    private TrainingOverlay? _trainingOverlay;
     private string _statusText = "";
     private UI.PauseMenu? _pauseMenu;
     private bool _paused;
@@ -91,9 +95,17 @@ public sealed partial class FightDirector : Node
             default:
                 _p1 = GameSession.CreateP1();
                 _p2 = GameSession.CreateP2();
-                _cpu = _cpu1 != null ? new CpuBrain(2, aggression: 8)
+                if (GameSession.Mode == GameMode.Training)
+                {
+                    _dummy = new TrainingDummy(new CpuBrain((ulong)Time.GetTicksUsec(), aggression: 6)) { Mode = ParseDummyMode(_dummyArgument) };
+                    _advantage = new FrameAdvantageTracker();
+                    _trainingOverlay = new TrainingOverlay();
+                    AddChild(_trainingOverlay);
+                }
+
+                _cpu = _dummy != null ? _dummy
+                    : _cpu1 != null ? new CpuBrain(2, aggression: 8)
                     : GameSession.Mode == GameMode.Arcade ? new CpuBrain((ulong)Time.GetTicksUsec(), aggression: 6)
-                    : GameSession.Mode == GameMode.Training ? new DummyBrain()
                     : null;
                 StartRound();
                 break;
@@ -106,7 +118,7 @@ public sealed partial class FightDirector : Node
 
     /// <summary>
     /// Command-line hooks (after <c>--</c>), used by CI smoke tests and screenshots:
-    /// <c>--fury-demo</c> AI vs AI; <c>--fury-view=0|1|2</c>; <c>--fury-frames=N</c> with <c>--fury-capture=file.png</c>
+    /// <c>--fury-demo</c> AI vs AI; <c>--fury-training</c> + <c>--fury-dummy=stand|crouch|jump|block|blocklow|cpu</c> practice mode; <c>--fury-view=0|1|2</c>; <c>--fury-frames=N</c> with <c>--fury-capture=file.png</c>
     /// saves a screenshot after N ticks and quits; <c>--fury-quit=N</c> quits after N ticks;
     /// <c>--fury-online=host|guest</c> (+ <c>--fury-remote=ip</c>, <c>--fury-port=n</c>, <c>--fury-character=id</c>,
     /// <c>--fury-seed=n</c>, or <c>--fury-relay=host:port</c> + <c>--fury-room=CODE</c> to meet through a relay) plays a CPU-driven online match and prints a confirmed-state hash for cross-checking.
@@ -116,6 +128,7 @@ public sealed partial class FightDirector : Node
         int frames = 240;
         ulong seed = 1;
         bool onlineBrain = false;
+        bool trainingRequested = false;
         foreach (string arg in OS.GetCmdlineUserArgs())
         {
             if (arg == "--fury-demo")
@@ -124,6 +137,8 @@ public sealed partial class FightDirector : Node
                 GameSession.Mode = GameMode.Versus;
             }
             else if (arg == "--fury-touch") GameSettings.ForceTouchControls = true;
+            else if (arg == "--fury-training") trainingRequested = true;
+            else if (arg.StartsWith("--fury-dummy=", StringComparison.Ordinal)) _dummyArgument = arg[13..];
             else if (arg.StartsWith("--fury-view=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(12), out int v) && v is >= 0 and <= 2) GameSettings.ViewMode = (ViewMode)v;
             else if (arg.StartsWith("--fury-frames=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(14), out int n) && n > 0) frames = n;
             else if (arg.StartsWith("--fury-capture=", StringComparison.Ordinal)) _capturePath = arg[15..];
@@ -152,6 +167,7 @@ public sealed partial class FightDirector : Node
             else if (arg.StartsWith("--fury-seed=", StringComparison.Ordinal) && ulong.TryParse(arg.AsSpan(12), out ulong s)) seed = s;
         }
         if (onlineBrain) _onlineBrain = new CpuBrain(seed, aggression: 8);
+        if (trainingRequested) GameSession.Mode = GameMode.Training; // after --fury-demo, which selects versus
         if (_capturePath != null) _captureTick = frames;
     }
 
@@ -214,6 +230,9 @@ public sealed partial class FightDirector : Node
         _events.Clear();
         var stageModule = _stage?.CreateModule();
         _sim = new FightSimulation(_p1, _p2, cfg, _events, modules: stageModule != null ? [stageModule] : null);
+        _dummy?.Attach(_sim, 1);
+        _advantage?.Reset();
+        _trainingOverlay?.Reset();
         _view.Bind(_sim);
         _hud.Setup(_p1.Id, _p2.Id, cfg.MaxHealth);
         _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
@@ -355,7 +374,12 @@ public sealed partial class FightDirector : Node
             var in2 = _cpu != null ? _cpu.Poll(_sim.Frame, _sim.ViewFor(1)) : InputAdapter.Poll(1);
             if (_recorder != null) _recorder.Step(in1, in2);
             else _sim.Step(in1, in2);
-            if (GameSession.Mode == GameMode.Training) TrainingMaintenance();
+            if (_dummy != null && _advantage != null && _trainingOverlay != null)
+            {
+                TrainingMaintenance();
+                _advantage.Update(_sim.State);
+                _trainingOverlay.Update(_sim, in1, _dummy, _advantage);
+            }
         }
 
         if (advanced) AfterSimStep();
@@ -577,12 +601,23 @@ public sealed partial class FightDirector : Node
         }
     }
 
+    private static DummyMode ParseDummyMode(string name) => name.ToLowerInvariant() switch
+    {
+        "crouch" => DummyMode.Crouch,
+        "jump" => DummyMode.Jump,
+        "block" => DummyMode.BlockHigh,
+        "blocklow" => DummyMode.BlockLow,
+        "cpu" => DummyMode.Cpu,
+        _ => DummyMode.Stand,
+    };
+
     private void TrainingMaintenance()
     {
-        // Refill the dummy's health when it has been left alone for a second (training convenience, offline only).
+        // Refill both fighters when the exchange has been over for a second (training convenience, offline only).
         var s = _sim.State;
-        bool idle = s.GetStateId(1) == FighterStateId.Idle && s.GetStateId(0) is FighterStateId.Idle or FighterStateId.Crouch;
-        _trainingIdleFrames = idle ? _trainingIdleFrames + 1 : 0;
+        int dummyState = s.GetStateId(1);
+        bool calm = FighterStateId.IsNeutral(s.GetStateId(0)) && (FighterStateId.IsNeutral(dummyState) || dummyState == FighterStateId.Jump);
+        _trainingIdleFrames = calm ? _trainingIdleFrames + 1 : 0;
         if (_trainingIdleFrames > 60 && (s.GetHealth(1) < _sim.Config.MaxHealth || s.GetHealth(0) < _sim.Config.MaxHealth))
         {
             s.SetHealth(0, _sim.Config.MaxHealth);
@@ -596,8 +631,12 @@ public sealed partial class FightDirector : Node
 
     private void BuildPauseMenu()
     {
-        _pauseMenu = new UI.PauseMenu();
+        _pauseMenu = new UI.PauseMenu(training: GameSession.Mode == GameMode.Training);
         AddChild(_pauseMenu);
+        _pauseMenu.DummyRequested += () =>
+        {
+            if (_dummy != null) _pauseMenu?.SetDummyLabel(_dummy.Cycle());
+        };
         _pauseMenu.ResumeRequested += TogglePause;
         _pauseMenu.RestartRequested += () =>
         {
@@ -644,6 +683,9 @@ public sealed partial class FightDirector : Node
                 break;
             case Key.F3:
                 GameSettings.ShowDebugOverlay = !GameSettings.ShowDebugOverlay;
+                break;
+            case Key.F5 when _dummy != null:
+                _dummy.Cycle();
                 break;
             case Key.Space when _replay != null:
                 _replayPaused = !_replayPaused;
