@@ -34,6 +34,13 @@ run_scene res://scenes/game/fight.tscn -- --fury-demo
 run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-view=1
 run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-view=2
 run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-training --fury-dummy=block
+# Art pipeline: the template pack (sprite strips) in the 2D and 2.5D views, and the content validator.
+run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-templates --fury-character=template --fury-opponent=kira
+run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-templates --fury-character=template --fury-opponent=kira --fury-view=1
+echo "== content validator =="
+check=$("$GODOT" --headless --path . res://scenes/tools/content_check.tscn -- --fury-templates 2>&1) || true
+echo "$check" | tail -5
+if ! echo "$check" | grep -q " 0 error(s)"; then echo "FAIL: content validator reported errors"; fail=1; fi
 
 if [ "$fail" -ne 0 ]; then echo "SMOKE TEST FAILED"; exit 1; fi
 echo "SMOKE TEST PASSED"

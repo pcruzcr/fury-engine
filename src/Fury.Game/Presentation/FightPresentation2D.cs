@@ -1,3 +1,4 @@
+using Fury.Game.Content;
 using Fury.Core.Math;
 using Fury.Core.Sim;
 using Godot;
@@ -5,9 +6,8 @@ using Godot;
 namespace Fury.Game.Presentation;
 
 /// <summary>
-/// Flat 2D view: orthographic side view with a smoothed, zooming, limit-aware camera. Fighters are
-/// placeholder shapes unless <c>res://characters/{id}/visual_2d.tscn</c> exists (any scene, optionally with an
-/// AnimationPlayer whose animations are named after <see cref="FightPresentation.StateAnimation"/>).
+/// Flat 2D view: orthographic side view with a smoothed, zooming, limit-aware camera. Fighters are the procedural
+/// puppet unless the character's pack ships art (sprite strips or an authored scene, see <see cref="CharacterVisuals"/>).
 /// Positions are assigned on the physics tick so Godot's physics interpolation renders smoothly at any refresh rate.
 /// </summary>
 public sealed partial class FightPresentation2D : FightPresentation
@@ -261,14 +261,16 @@ public sealed partial class FightPresentation2D : FightPresentation
         private readonly PuppetBody2D _puppet;
         private readonly PoseSmoother _smoother = new();
         private readonly Vector2[] _target = new Vector2[FighterPoser.JointCount];
-        private Node? _visual;
+        private readonly Color _slotColor;
+        private ICharacterVisual? _visual;
         private string _characterId = "";
 
         public FighterShape2D(Node parent, int index)
         {
             _root.Name = $"Fighter{index + 1}";
             _root.ZIndex = 5 + index;
-            _puppet = new PuppetBody2D(index == 0 ? new Color(0.25f, 0.5f, 1f) : new Color(1f, 0.3f, 0.3f));
+            _slotColor = index == 0 ? new Color(0.25f, 0.5f, 1f) : new Color(1f, 0.3f, 0.3f);
+            _puppet = new PuppetBody2D(_slotColor);
             _root.AddChild(_puppet);
             parent.AddChild(_root);
         }
@@ -277,9 +279,12 @@ public sealed partial class FightPresentation2D : FightPresentation
         {
             if (id == _characterId) return;
             _characterId = id;
-            _visual?.QueueFree();
-            _visual = TryInstanceCharacterScene(id, "visual_2d.tscn");
-            if (_visual != null) _root.AddChild(_visual);
+            _visual?.Root.QueueFree();
+
+            var entry = ContentLibrary.Find(id);
+            _visual = CharacterVisuals.Create2D(entry);
+            if (_visual != null) _root.AddChild(_visual.Root);
+            _puppet.SetColors(entry?.Primary ?? _slotColor, entry?.Accent);
             _puppet.Visible = _visual == null;
             _smoother.Reset();
         }
@@ -295,15 +300,17 @@ public sealed partial class FightPresentation2D : FightPresentation
             _root.Position = WorldProjection.ToScreen(s.GetX(f), s.GetY(f));
             _root.Scale = new Vector2(facing, 1f);
 
-            int state = s.GetStateId(f);
-            if (_visual == null)
+            if (_visual != null)
             {
-                FighterPoser.Compute(sim, f, _target);
-                // Attacks are drawn exactly on their frame data; everything else eases between poses.
-                _smoother.Blend(_target, state == FighterStateId.Attack ? 1f : 0.55f);
-                _puppet.SetPose(_smoother.Pose);
+                _visual.Apply(FighterSituation.From(sim, f)); // authored art decides its own look: no tint
+                return;
             }
 
+            int state = s.GetStateId(f);
+            FighterPoser.Compute(sim, f, _target);
+            // Attacks are drawn exactly on their frame data; everything else eases between poses.
+            _smoother.Blend(_target, state == FighterStateId.Attack ? 1f : 0.55f);
+            _puppet.SetPose(_smoother.Pose);
             _puppet.Modulate = state switch
             {
                 FighterStateId.Attack => new Color(1f, 0.95f, 0.5f),
@@ -312,8 +319,6 @@ public sealed partial class FightPresentation2D : FightPresentation
                 FighterStateId.Ko => new Color(0.5f, 0.5f, 0.5f),
                 _ => Colors.White,
             };
-
-            PlayAnimation(_visual, StateAnimation(state, s.IsCrouching(f)));
         }
     }
 }

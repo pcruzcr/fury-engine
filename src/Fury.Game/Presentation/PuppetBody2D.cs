@@ -9,15 +9,19 @@ public sealed partial class PuppetBody2D : Node2D
     private static readonly Color Skin = new(0.96f, 0.78f, 0.62f);
 
     private readonly Vector2[] _pose = new Vector2[FighterPoser.JointCount];
-    private readonly Color _body;
-    private readonly Color _shade;
-    private readonly Color _accent;
+    private Color _body;
+    private Color _shade;
+    private Color _accent;
 
-    public PuppetBody2D(Color body)
+    public PuppetBody2D(Color body) => SetColors(body, null);
+
+    /// <summary>Recolours the fighter (a character pack's colours); the accent defaults to a lighter body colour.</summary>
+    public void SetColors(Color body, Color? accent)
     {
         _body = body;
         _shade = body.Darkened(0.35f);
-        _accent = body.Lightened(0.55f);
+        _accent = accent ?? body.Lightened(0.55f);
+        QueueRedraw();
     }
 
     /// <summary>Copies a pose (fighter space: units, Y up) and schedules a redraw.</summary>

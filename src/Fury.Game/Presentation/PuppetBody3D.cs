@@ -58,6 +58,13 @@ public sealed partial class PuppetBody3D : Node3D
         }
     }
 
+    /// <summary>Recolours the fighter (a character pack's primary colour).</summary>
+    public void SetColors(Color body)
+    {
+        _materials[Body].AlbedoColor = body;
+        _materials[Shade].AlbedoColor = body.Darkened(0.35f);
+    }
+
     /// <summary>The body material, so the view can drive emission from the fighter state.</summary>
     public StandardMaterial3D BodyMaterial => _materials[Body];
 

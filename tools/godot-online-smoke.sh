@@ -9,7 +9,7 @@ GODOT="${GODOT:-godot}"
 PORT="${1:-7791}"
 cd "$(dirname "$0")/.."
 tmp="$(mktemp -d)"
-common="--fury-port=$PORT --fury-round-seconds=3 --fury-quit=1800"
+common="--fury-port=$PORT --fury-round-seconds=3 --fury-quit=1800 ${EXTRA_ARGS:-}"
 relay_pid=""
 if [ -n "${RELAY:-}" ]; then
   dotnet build tools/relay/Fury.Relay.csproj -c Release --nologo -v q > "$tmp/relay-build.log" 2>&1 || { echo "FAIL: relay build"; cat "$tmp/relay-build.log"; exit 1; }
@@ -17,7 +17,7 @@ if [ -n "${RELAY:-}" ]; then
   relay_pid=$!
   trap 'kill "$relay_pid" 2>/dev/null' EXIT
   sleep 2
-  common="--fury-relay=127.0.0.1:$PORT --fury-room=SMOKE-ROOM-1 --fury-round-seconds=3 --fury-quit=1800"
+  common="--fury-relay=127.0.0.1:$PORT --fury-room=SMOKE-ROOM-1 --fury-round-seconds=3 --fury-quit=1800 ${EXTRA_ARGS:-}"
 fi
 
 "$GODOT" --headless --path . res://scenes/game/fight.tscn -- --fury-online=host --fury-character=glen --fury-seed=11 $common > "$tmp/host.log" 2>&1 &

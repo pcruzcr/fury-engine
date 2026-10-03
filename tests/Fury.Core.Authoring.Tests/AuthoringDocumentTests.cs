@@ -6,6 +6,7 @@ using Xunit;
 namespace Fury.Core.Authoring.Tests;
 
 /// <summary>Persistence models behind the editors (they used to be UI stubs that saved nothing).</summary>
+[Collection("roster")]
 public class EditorDocumentTests
 {
     [Fact]

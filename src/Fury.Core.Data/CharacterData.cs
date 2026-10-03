@@ -310,21 +310,73 @@ public static class KiraData
 }
 
 /// <summary>
-/// Single lookup from a character id ("glen", "kira") to its compiled config. Character
-/// select, the fight director and tools resolve fighters through here instead of each
-/// hard-coding Glen vs Kira.
+/// Single lookup from a character id ("glen", "kira", or a data-defined content pack) to its compiled config. Character
+/// select, the fight director and tools resolve fighters through here instead of each hard-coding Glen vs Kira.
 /// </summary>
 public static class CharacterRoster
 {
-    /// <summary>Ids in display order.</summary>
-    public static IReadOnlyList<string> Ids { get; } = ["glen", "kira"];
-
+    private static readonly string[] BuiltInIds = ["glen", "kira"];
+    private static readonly Lock Gate = new();
     private static readonly Dictionary<string, BinaryMoveTable> TableOverrides = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly List<CharacterConfig> Registered = [];
+
+    /// <summary>Ids in display order: the built-in characters first, then registered (data-defined) ones in registration order.</summary>
+    public static IReadOnlyList<string> Ids
+    {
+        get
+        {
+            lock (Gate) return [.. BuiltInIds, .. Registered.Select(c => c.Id)];
+        }
+    }
+
+    /// <summary>True when <paramref name="id"/> is one of the characters compiled into the engine.</summary>
+    public static bool IsBuiltIn(string id) => BuiltInIds.Contains(id, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True when <paramref name="id"/> can be created (built-in or registered).</summary>
+    public static bool Contains(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+        lock (Gate) return IsBuiltIn(id) || Registered.Any(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
-    /// Replaces the move table of a built-in character (modding and the frame data editor). The override must keep the
-    /// canonical <see cref="MoveSlot.Count"/> slots first. Netplay and replays compare character fingerprints, so peers
-    /// with different tables refuse to play each other instead of desyncing. Pass null to restore the built-in table.
+    /// Adds a data-defined character (a content pack). Registering an id again replaces the previous definition, so a reload
+    /// picks up edits. Built-in ids cannot be replaced: change their move table with <see cref="SetMoveTableOverride"/> instead.
+    /// </summary>
+    /// <exception cref="ArgumentException">The id is empty or belongs to a built-in character.</exception>
+    /// <exception cref="InvalidDataException">The move table lacks the canonical slots.</exception>
+    public static void Register(CharacterConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        if (string.IsNullOrWhiteSpace(config.Id)) throw new ArgumentException("A character needs an id.", nameof(config));
+        if (IsBuiltIn(config.Id)) throw new ArgumentException($"'{config.Id}' is a built-in character and cannot be replaced.", nameof(config));
+        if (config.Moves.MoveCount < MoveSlot.Count) throw new InvalidDataException($"A character table needs at least {MoveSlot.Count} moves.");
+
+        lock (Gate)
+        {
+            int existing = Registered.FindIndex(c => string.Equals(c.Id, config.Id, StringComparison.OrdinalIgnoreCase));
+            if (existing >= 0) Registered[existing] = config;
+            else Registered.Add(config);
+        }
+    }
+
+    /// <summary>Removes one registered character; false when it was not registered (built-ins cannot be removed).</summary>
+    public static bool Unregister(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+        lock (Gate) return Registered.RemoveAll(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase)) > 0;
+    }
+
+    /// <summary>Removes every registered character (the built-in ones stay). Call before reloading content.</summary>
+    public static void ClearRegistered()
+    {
+        lock (Gate) Registered.Clear();
+    }
+
+    /// <summary>
+    /// Replaces the move table of a character (modding and the frame data editor). The override must keep the canonical
+    /// <see cref="MoveSlot.Count"/> slots first. Netplay and replays compare character fingerprints, so peers with
+    /// different tables refuse to play each other instead of desyncing. Pass null to restore the original table.
     /// </summary>
     /// <exception cref="InvalidDataException">The table lacks the canonical slots.</exception>
     public static void SetMoveTableOverride(string id, BinaryMoveTable? table)
@@ -332,14 +384,17 @@ public static class CharacterRoster
         ArgumentNullException.ThrowIfNull(id);
         if (table is null)
         {
-            TableOverrides.Remove(id);
+            lock (Gate) TableOverrides.Remove(id);
             return;
         }
         if (table.MoveCount < MoveSlot.Count) throw new InvalidDataException($"A character table needs at least {MoveSlot.Count} moves.");
-        TableOverrides[id] = table;
+        lock (Gate) TableOverrides[id] = table;
     }
 
-    public static bool HasOverride(string id) => TableOverrides.ContainsKey(id);
+    public static bool HasOverride(string id)
+    {
+        lock (Gate) return TableOverrides.ContainsKey(id);
+    }
 
     /// <summary>Builds the config for <paramref name="id"/> (case-insensitive).</summary>
     /// <exception cref="ArgumentException">Unknown id.</exception>
@@ -349,8 +404,14 @@ public static class CharacterRoster
         {
             "glen" => GlenData.Create(),
             "kira" => KiraData.Create(),
-            _ => throw new ArgumentException($"Unknown character id '{id}'.", nameof(id)),
+            _ => FindRegistered(id) ?? throw new ArgumentException($"Unknown character id '{id}'. Is its content pack installed?", nameof(id)),
         };
-        return TableOverrides.TryGetValue(config.Id, out var table) ? config with { Moves = table } : config;
+        lock (Gate) return TableOverrides.TryGetValue(config.Id, out var table) ? config with { Moves = table } : config;
+    }
+
+    private static CharacterConfig? FindRegistered(string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        lock (Gate) return Registered.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
     }
 }

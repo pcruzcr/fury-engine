@@ -162,6 +162,7 @@ public sealed partial class FightDirector : Node
             }
             else if (arg.StartsWith("--fury-room=", StringComparison.Ordinal)) GameSession.NetRoomCode = arg[12..];
             else if (arg.StartsWith("--fury-character=", StringComparison.Ordinal)) GameSession.P1CharacterId = arg[17..];
+            else if (arg.StartsWith("--fury-opponent=", StringComparison.Ordinal)) GameSession.P2CharacterId = arg[16..];
             else if (arg.StartsWith("--fury-stage=", StringComparison.Ordinal)) GameSettings.StageName = arg[13..];
             else if (arg.StartsWith("--fury-round-seconds=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(21), out int seconds) && seconds > 0) GameSession.RoundSecondsOverride = seconds;
             else if (arg.StartsWith("--fury-seed=", StringComparison.Ordinal) && ulong.TryParse(arg.AsSpan(12), out ulong s)) seed = s;
@@ -234,7 +235,7 @@ public sealed partial class FightDirector : Node
         _advantage?.Reset();
         _trainingOverlay?.Reset();
         _view.Bind(_sim);
-        _hud.Setup(_p1.Id, _p2.Id, cfg.MaxHealth);
+        _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), cfg.MaxHealth);
         _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
 
         // Replays do not carry the stage geometry, so fights on a custom stage are not recorded.
@@ -273,7 +274,7 @@ public sealed partial class FightDirector : Node
 
             _sim = new FightSimulation(_p1, _p2, cfg, _events);
             _view.Bind(_sim);
-            _hud.Setup(_p1.Id, _p2.Id, cfg.MaxHealth);
+            _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), cfg.MaxHealth);
             EnterPhase(Phase.Fighting);
             _hud.ShowBanner("REPLAY  ·  SPACE pause  ·  → step", 2.5f);
         }
@@ -338,7 +339,7 @@ public sealed partial class FightDirector : Node
             _p1 = _sim.Data(0);
             _p2 = _sim.Data(1);
             _view.Bind(_sim);
-            _hud.Setup(_p1.Id, _p2.Id, _sim.Config.MaxHealth);
+            _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), _sim.Config.MaxHealth);
             EnterPhase(Phase.Fighting);
             _hud.ShowBanner("FIGHT!", 0.8f);
             _audio.Play(Sfx.RoundStart);
@@ -545,7 +546,7 @@ public sealed partial class FightDirector : Node
         _events.Clear();
         _sim = _online.BeginNextRound(target);
         _view.Bind(_sim);
-        _hud.Setup(_p1.Id, _p2.Id, _sim.Config.MaxHealth);
+        _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), _sim.Config.MaxHealth);
         _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
         _hud.ShowBanner($"ROUND {_round}", 1.0f);
         _audio.Play(Sfx.RoundStart);
@@ -583,7 +584,7 @@ public sealed partial class FightDirector : Node
         }
     }
 
-    private string WinnerName(int winner) => winner < 0 ? "DRAW GAME" : $"{(winner == 0 ? _p1.Id : _p2.Id).ToUpperInvariant()} WINS";
+    private string WinnerName(int winner) => winner < 0 ? "DRAW GAME" : $"{Content.ContentLibrary.DisplayName(winner == 0 ? _p1.Id : _p2.Id).ToUpperInvariant()} WINS";
 
     private void SaveReplay()
     {

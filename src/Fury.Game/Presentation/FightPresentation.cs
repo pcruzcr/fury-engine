@@ -39,35 +39,4 @@ public abstract partial class FightPresentation : Node
 
     /// <summary>Adds camera shake (0..1). Ignored when the player enabled "reduce motion".</summary>
     public abstract void Shake(float strength);
-
-    /// <summary>Animation / pose name for a fighter state id (used to drive optional character scenes).</summary>
-    public static string StateAnimation(int stateId, bool crouching) => stateId switch
-    {
-        FighterStateId.WalkForward => "walk_forward",
-        FighterStateId.WalkBack => "walk_back",
-        FighterStateId.Crouch => "crouch",
-        FighterStateId.Jump => "jump",
-        FighterStateId.Attack => crouching ? "attack_crouch" : "attack",
-        FighterStateId.Hitstun => "hit",
-        FighterStateId.Blockstun => "block",
-        FighterStateId.Knockdown => "knockdown",
-        FighterStateId.Ko => "ko",
-        _ => "idle",
-    };
-
-    /// <summary>Plays <paramref name="animation"/> on the first AnimationPlayer under <paramref name="root"/>, if it has it.</summary>
-    protected static void PlayAnimation(Node? root, string animation)
-    {
-        if (root == null) return;
-        var player = root.GetNodeOrNull<AnimationPlayer>("AnimationPlayer");
-        if (player == null || !player.HasAnimation(animation) || player.CurrentAnimation == animation) return;
-        player.Play(animation);
-    }
-
-    /// <summary>Loads <c>res://characters/{id}/{file}</c> when the project ships art for that character.</summary>
-    protected static Node? TryInstanceCharacterScene(string characterId, string file)
-    {
-        string path = $"res://characters/{characterId}/{file}";
-        return ResourceLoader.Exists(path) && ResourceLoader.Load(path) is PackedScene scene ? scene.Instantiate() : null;
-    }
 }

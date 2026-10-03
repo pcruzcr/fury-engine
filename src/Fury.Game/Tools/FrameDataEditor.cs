@@ -127,7 +127,7 @@ public partial class FrameDataEditor : Control
         root.AddChild(pickers);
         pickers.AddChild(new Label { Text = "Character:" });
         _characterSelector = new OptionButton();
-        foreach (string id in CharacterRoster.Ids) _characterSelector.AddItem(id.ToUpperInvariant());
+        foreach (string id in CharacterRoster.Ids) _characterSelector.AddItem(Content.ContentLibrary.DisplayName(id));
         _characterSelector.ItemSelected += OnCharacterSelected;
         pickers.AddChild(_characterSelector);
         pickers.AddChild(new Label { Text = "  Move:" });

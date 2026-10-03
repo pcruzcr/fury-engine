@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Fury.Core.Authoring\Fury.Core.Authoring.csproj" />
+    <ProjectReference Include="..\..\src\Fury.Core.Sim\Fury.Core.Sim.csproj" />
   </ItemGroup>
 
 </Project>

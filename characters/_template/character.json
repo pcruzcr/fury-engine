@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "id": "template",
+  "displayName": "Template",
+  "baseOn": "glen",
+  "moves": "",
+  "stats": {
+    "maxHealth": 1000,
+    "walkForward": 0.1,
+    "walkBack": 0,
+    "dashSpeed": 0,
+    "dashFrames": 0,
+    "backdashSpeed": 0,
+    "backdashFrames": 0,
+    "backdashInvulnFrames": 0
+  },
+  "moveNames": [],
+  "portrait": "portrait.png",
+  "colors": {
+    "primary": "#2fb6a0",
+    "accent": ""
+  },
+  "visual": {
+    "scale": 1,
+    "pixelArt": false,
+    "sprites": {
+      "frameWidth": 448,
+      "frameHeight": 256,
+      "pivotX": 160,
+      "pivotY": 236,
+      "animations": {
+        "idle": {
+          "file": "sprites/idle.png",
+          "frames": 8,
+          "fps": 10
+        },
+        "walk_forward": {
+          "file": "sprites/walk_forward.png",
+          "frames": 8,
+          "fps": 12
+        },
+        "walk_back": {
+          "file": "sprites/walk_back.png",
+          "frames": 8,
+          "fps": 12
+        },
+        "crouch": {
+          "file": "sprites/crouch.png",
+          "frames": 4,
+          "fps": 12
+        },
+        "jump": {
+          "file": "sprites/jump.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "dash": {
+          "file": "sprites/dash.png",
+          "frames": 4,
+          "fps": 14
+        },
+        "backdash": {
+          "file": "sprites/backdash.png",
+          "frames": 4,
+          "fps": 14
+        },
+        "stand_light": {
+          "file": "sprites/stand_light.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "stand_medium": {
+          "file": "sprites/stand_medium.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "stand_heavy": {
+          "file": "sprites/stand_heavy.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "crouch_light": {
+          "file": "sprites/crouch_light.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "crouch_heavy": {
+          "file": "sprites/crouch_heavy.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "special": {
+          "file": "sprites/special.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "super": {
+          "file": "sprites/super.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "attack": {
+          "file": "sprites/attack.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "attack_crouch": {
+          "file": "sprites/attack_crouch.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "attack_air": {
+          "file": "sprites/attack_air.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "hit": {
+          "file": "sprites/hit.png",
+          "frames": 3,
+          "fps": 12
+        },
+        "hit_crouch": {
+          "file": "sprites/hit_crouch.png",
+          "frames": 3,
+          "fps": 12
+        },
+        "hit_air": {
+          "file": "sprites/hit_air.png",
+          "frames": 3,
+          "fps": 12
+        },
+        "block": {
+          "file": "sprites/block.png",
+          "frames": 3,
+          "fps": 12
+        },
+        "block_crouch": {
+          "file": "sprites/block_crouch.png",
+          "frames": 3,
+          "fps": 12
+        },
+        "knockdown": {
+          "file": "sprites/knockdown.png",
+          "frames": 6,
+          "fps": 12
+        },
+        "ko": {
+          "file": "sprites/ko.png",
+          "frames": 2,
+          "fps": 12
+        }
+      }
+    },
+    "scene2D": "",
+    "scene3D": ""
+  },
+  "audio": {
+    "sfx": {}
+  }
+}

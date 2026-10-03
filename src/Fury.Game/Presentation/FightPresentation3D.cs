@@ -1,3 +1,4 @@
+using Fury.Game.Content;
 using Fury.Core.Sim;
 using Godot;
 
@@ -7,8 +8,8 @@ namespace Fury.Game.Presentation;
 /// 3D presentation of the 2D simulation (2.5D). Fighters live on the fight plane (Z = 0); the camera is a
 /// real perspective <see cref="Camera3D"/>. <see cref="ViewMode.Perspective2_5D"/> keeps it side-on and locked to
 /// the plane like a modern 2.5D fighter; <see cref="ViewMode.Cinematic3D"/> adds a slow orbit for replays and
-/// showcases. Fighters are placeholder capsules unless <c>res://characters/{id}/visual_3d.tscn</c> exists
-/// (any 3D scene, optionally with an AnimationPlayer named after <see cref="FightPresentation.StateAnimation"/>).
+/// showcases. Fighters are the procedural puppet unless the character's pack ships art (a 3D scene or sprite strips,
+/// see <see cref="CharacterVisuals"/>).
 /// Gameplay stays 2D: the simulation has no depth axis.
 /// </summary>
 public sealed partial class FightPresentation3D : FightPresentation
@@ -253,7 +254,7 @@ public sealed partial class FightPresentation3D : FightPresentation
         });
     }
 
-    /// <summary>Default fighter: the procedural puppet as meshes (see <see cref="FighterPoser"/>), replaced by the character's own scene when it ships one.</summary>
+    /// <summary>Default fighter: the procedural puppet as meshes (see <see cref="FighterPoser"/>), replaced by the character's own art when it ships any.</summary>
     private sealed class FighterShape3D
     {
         private readonly Node3D _root = new();
@@ -261,13 +262,15 @@ public sealed partial class FightPresentation3D : FightPresentation
         private readonly PoseSmoother _smoother = new();
         private readonly Vector2[] _target = new Vector2[FighterPoser.JointCount];
         private readonly StandardMaterial3D _material;
-        private Node? _visual;
+        private readonly Color _slotColor;
+        private ICharacterVisual? _visual;
         private string _characterId = "";
 
         public FighterShape3D(Node parent, int index)
         {
             _root.Name = $"Fighter{index + 1}";
-            _puppet = new PuppetBody3D(index == 0 ? new Color(0.25f, 0.5f, 1f) : new Color(1f, 0.3f, 0.3f));
+            _slotColor = index == 0 ? new Color(0.25f, 0.5f, 1f) : new Color(1f, 0.3f, 0.3f);
+            _puppet = new PuppetBody3D(_slotColor);
             _material = _puppet.BodyMaterial;
             _root.AddChild(_puppet);
             parent.AddChild(_root);
@@ -277,9 +280,12 @@ public sealed partial class FightPresentation3D : FightPresentation
         {
             if (id == _characterId) return;
             _characterId = id;
-            _visual?.QueueFree();
-            _visual = TryInstanceCharacterScene(id, "visual_3d.tscn");
-            if (_visual != null) _root.AddChild(_visual);
+            _visual?.Root.QueueFree();
+
+            var entry = ContentLibrary.Find(id);
+            _visual = CharacterVisuals.Create3D(entry);
+            if (_visual != null) _root.AddChild(_visual.Root);
+            _puppet.SetColors(entry?.Primary ?? _slotColor);
             _puppet.Visible = _visual == null;
             _smoother.Reset();
         }
@@ -295,13 +301,16 @@ public sealed partial class FightPresentation3D : FightPresentation
             _root.Position = WorldProjection.ToWorld3D(s.GetX(f), s.GetY(f));
             _root.RotationDegrees = new Vector3(0, facing > 0 ? 0f : 180f, 0);
 
-            int state = s.GetStateId(f);
-            if (_visual == null)
+            if (_visual != null)
             {
-                FighterPoser.Compute(sim, f, _target);
-                _smoother.Blend(_target, state == FighterStateId.Attack ? 1f : 0.55f);
-                _puppet.SetPose(_smoother.Pose);
+                _visual.Apply(FighterSituation.From(sim, f));
+                return;
             }
+
+            int state = s.GetStateId(f);
+            FighterPoser.Compute(sim, f, _target);
+            _smoother.Blend(_target, state == FighterStateId.Attack ? 1f : 0.55f);
+            _puppet.SetPose(_smoother.Pose);
 
             _material.EmissionEnabled = state is FighterStateId.Attack or FighterStateId.Hitstun or FighterStateId.Blockstun;
             _material.Emission = state switch
@@ -310,7 +319,6 @@ public sealed partial class FightPresentation3D : FightPresentation
                 FighterStateId.Hitstun => new Color(0.6f, 0.25f, 0.05f),
                 _ => new Color(0.1f, 0.4f, 0.5f),
             };
-            PlayAnimation(_visual, StateAnimation(state, s.IsCrouching(f)));
         }
     }
 }

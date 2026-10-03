@@ -16,6 +16,7 @@ public static class CharacterMods
     /// <summary>Applies every valid override found on disk. Returns how many were loaded.</summary>
     public static int LoadAll()
     {
+        Content.ContentLibrary.EnsureLoaded(); // packs first, so their ids exist when overrides are matched below
         int loaded = 0;
         string directory = ProjectSettings.GlobalizePath(Folder);
         foreach (string id in CharacterRoster.Ids)

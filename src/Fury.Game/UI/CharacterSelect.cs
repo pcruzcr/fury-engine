@@ -1,4 +1,5 @@
 using Fury.Core.Data;
+using Fury.Game.Content;
 using Godot;
 
 namespace Fury.Game.UI;
@@ -19,24 +20,50 @@ public partial class CharacterSelect : Control
         UiKit.Title(column, "SELECT YOUR FIGHTER", 48);
         _prompt = UiKit.Text(column, "", 24);
 
-        var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-        row.AddThemeConstantOverride("separation", 16);
-        column.AddChild(row);
+        // A grid, so a roster of any size stays on screen; each cell shows the pack's portrait when it has one.
+        var grid = new GridContainer { Columns = 4 };
+        grid.AddThemeConstantOverride("h_separation", 16);
+        grid.AddThemeConstantOverride("v_separation", 16);
+        var rosterCenter = new CenterContainer();
+        column.AddChild(rosterCenter);
+        rosterCenter.AddChild(grid);
 
-        var ids = CharacterRoster.Ids;
-        _buttons = new Button[ids.Count];
-        for (int i = 0; i < ids.Count; i++)
+        var entries = ContentLibrary.Characters;
+        _buttons = new Button[entries.Count];
+        for (int i = 0; i < entries.Count; i++)
         {
-            string id = ids[i];
-            _buttons[i] = new Button { Text = id.ToUpperInvariant(), CustomMinimumSize = new Vector2(180, 120) };
-            _buttons[i].AddThemeFontSizeOverride("font_size", 30);
-            _buttons[i].Pressed += () => Pick(id);
-            row.AddChild(_buttons[i]);
+            var entry = entries[i];
+            _buttons[i] = BuildCard(entry);
+            _buttons[i].Pressed += () => Pick(entry.Id);
+            grid.AddChild(_buttons[i]);
         }
 
         UiKit.Button(column, "BACK", Back);
         RefreshPrompt();
         _buttons[0].GrabFocus();
+    }
+
+    private static Button BuildCard(CharacterEntry entry)
+    {
+        var button = new Button
+        {
+            Text = entry.DisplayName,
+            CustomMinimumSize = new Vector2(180, 150),
+            ExpandIcon = true,
+            IconAlignment = HorizontalAlignment.Center,
+            VerticalIconAlignment = VerticalAlignment.Top,
+        };
+        button.AddThemeFontSizeOverride("font_size", 26);
+        button.AddThemeColorOverride("font_color", entry.Accent);
+
+        string? portrait = entry.PortraitPath;
+        var texture = portrait == null ? null : AssetLoader.LoadTexture(portrait);
+        if (texture != null)
+        {
+            button.Icon = texture;
+            button.CustomMinimumSize = new Vector2(180, 230);
+        }
+        return button;
     }
 
     private static bool NeedsSecondPick => GameSession.Mode == GameMode.Versus;
@@ -60,7 +87,7 @@ public partial class CharacterSelect : Control
             int index = 0;
             for (int i = 0; i < ids.Count; i++)
             {
-                if (ids[i] == id) index = i;
+                if (string.Equals(ids[i], id, StringComparison.OrdinalIgnoreCase)) index = i;
             }
             GameSession.P2CharacterId = ids[(index + 1) % ids.Count];
         }
