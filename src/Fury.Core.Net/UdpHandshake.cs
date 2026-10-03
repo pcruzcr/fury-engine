@@ -1,6 +1,4 @@
 using System.Buffers.Binary;
-using System.Net;
-using System.Net.Sockets;
 using System.Text;
 
 namespace Fury.Core.Net;
@@ -9,19 +7,20 @@ namespace Fury.Core.Net;
 public sealed record PeerSetup(string CharacterId, ulong ConfigHash, ulong CharacterHash);
 
 /// <summary>
-/// Bootstrap exchange that runs before <see cref="UdpTransport"/>: both peers repeatedly send
-/// [magic "FRYH"][version][public key:65][configHash:8][characterHash:8][idLen:1][id], until the
-/// peer's message arrives. The keys then go through <see cref="SessionCrypto"/> (directional keys,
-/// transcript + optional matchmaker token). Runs on the calling thread with a hard timeout, never
-/// allocates unboundedly and ignores anything that is not a well-formed handshake from the peer.
+/// Bootstrap exchange that runs before <see cref="UdpTransport"/>, over the same <see cref="IDatagramChannel"/>: both peers
+/// repeatedly send [magic "FRYH"][version][public key:65][configHash:8][characterHash:8][idLen:1][id], until the peer's
+/// message arrives. The keys then go through <see cref="SessionCrypto"/> (directional keys, transcript + optional
+/// matchmaker token). Runs on the calling thread with a hard timeout, never allocates unboundedly and ignores anything
+/// that is not a well-formed handshake from the peer.
 /// </summary>
 public static class UdpHandshake
 {
     private const uint HandshakeMagic = 0x48595246; // "FRYH"
     private const byte HandshakeVersion = 1;
     private const int MaxIdBytes = 32;
+    private const int ReceivePollMilliseconds = 100;
 
-    /// <summary>Performs the exchange and returns the directional session keys plus what the peer announced.</summary>
+    /// <summary>Direct UDP exchange that opens and closes its own socket. Prefer the channel overload when a transport follows.</summary>
     /// <exception cref="TimeoutException">The peer never answered.</exception>
     /// <exception cref="InvalidDataException">The peer sent an invalid key.</exception>
     public static (SessionKeys Keys, PeerSetup Peer) Run(
@@ -35,25 +34,34 @@ public static class UdpHandshake
         TimeSpan timeout,
         CancellationToken cancellation = default)
     {
-        ArgumentException.ThrowIfNullOrEmpty(remoteHost);
+        using var channel = new DirectChannel(localPort, remoteHost, remotePort);
+        return Run(channel, characterId, configHash, characterHash, matchToken, timeout, cancellation);
+    }
+
+    /// <summary>
+    /// Performs the exchange over <paramref name="channel"/> (which the caller keeps and disposes) and returns the directional
+    /// session keys plus what the peer announced. Reusing the channel for the transport keeps the same source port, which a
+    /// NAT or a relay needs.
+    /// </summary>
+    /// <exception cref="TimeoutException">The peer never answered.</exception>
+    /// <exception cref="InvalidDataException">The peer sent an invalid key.</exception>
+    public static (SessionKeys Keys, PeerSetup Peer) Run(
+        IDatagramChannel channel,
+        string characterId,
+        ulong configHash,
+        ulong characterHash,
+        ReadOnlySpan<byte> matchToken,
+        TimeSpan timeout,
+        CancellationToken cancellation = default)
+    {
+        ArgumentNullException.ThrowIfNull(channel);
         ArgumentNullException.ThrowIfNull(characterId);
         byte[] idBytes = Encoding.UTF8.GetBytes(characterId);
         if (idBytes.Length > MaxIdBytes) throw new ArgumentException($"Character id is limited to {MaxIdBytes} UTF-8 bytes.", nameof(characterId));
 
-        IPAddress remoteAddress = IPAddress.TryParse(remoteHost, out var parsed)
-            ? parsed
-            : Dns.GetHostAddresses(remoteHost).FirstOrDefault() ?? throw new ArgumentException($"Cannot resolve host '{remoteHost}'.", nameof(remoteHost));
-        var remote = new IPEndPoint(remoteAddress, remotePort);
-
         using var handshake = new HandshakeManager(matchToken);
         byte[] message = BuildMessage(handshake.GetPublicKey(), configHash, characterHash, idBytes);
 
-        using var socket = new Socket(remoteAddress.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-        socket.Bind(new IPEndPoint(remoteAddress.AddressFamily == AddressFamily.InterNetworkV6 ? IPAddress.IPv6Any : IPAddress.Any, localPort));
-        socket.ReceiveTimeout = 100;
-
-        var remoteAddr = remote.Serialize();
-        var from = new SocketAddress(remoteAddress.AddressFamily);
         byte[] buffer = new byte[256];
         long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
         bool completed = false;
@@ -63,22 +71,14 @@ public static class UdpHandshake
         while (Environment.TickCount64 < deadline && Environment.TickCount64 < lingerUntil)
         {
             cancellation.ThrowIfCancellationRequested();
-            try { socket.SendTo(message, SocketFlags.None, remoteAddr); }
-            catch (SocketException) { /* peer not reachable yet */ }
+            channel.Send(message);
 
-            try
+            int received = channel.Receive(buffer, ReceivePollMilliseconds);
+            if (received >= 0 && !completed && TryParse(buffer.AsSpan(0, received), out var peerKey, out peer))
             {
-                int received = socket.ReceiveFrom(buffer, SocketFlags.None, from);
-                if (from.Equals(remoteAddr) && !completed && TryParse(buffer.AsSpan(0, received), out var peerKey, out peer))
-                {
-                    handshake.CompleteHandshake(peerKey);
-                    completed = true;
-                    lingerUntil = Environment.TickCount64 + 600;
-                }
-            }
-            catch (SocketException)
-            {
-                // receive timeout or transient error: resend and keep waiting
+                handshake.CompleteHandshake(peerKey);
+                completed = true;
+                lingerUntil = Environment.TickCount64 + 600;
             }
 
             if (completed) Thread.Sleep(20);

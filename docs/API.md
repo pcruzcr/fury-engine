@@ -50,8 +50,11 @@ runner.ConfirmedHash(frame);         // huella segura para comparar con el rival
 ## Fury.Core.Net
 
 ```csharp
-var (keys, peer) = UdpHandshake.Run(localPort, host, remotePort, characterId, cfgHash, charHash, matchToken, timeout);
-using var udp = new UdpTransport(localPort, host, remotePort, keys);
+// Un canal (directo o relay) sirve al handshake y al transporte: misma dirección de origen para NAT y relay.
+IDatagramChannel channel = new DirectChannel(localPort, host, remotePort);
+// o: var (roomId, token) = RelayRoom.Derive(code); channel = new RelayChannel(relayHost, relayPort, roomId);
+var (keys, peer) = UdpHandshake.Run(channel, characterId, cfgHash, charHash, matchToken, timeout);
+using var udp = new UdpTransport(channel, keys);   // el transporte se queda con el canal
 var net = new NetplaySession(sim, udp, localInput, localSlot, inputDelay: 2);
 bool advanced = net.Tick();          // entrega, avanza, envía ventana redundante; net.Status: Running/Stalled/Desynced
 net.StartNextRound(newSim, net.NetFrameBase + framesPlayed); // siguiente ronda en la misma línea de tiempo de red
@@ -59,6 +62,9 @@ net.StartNextRound(newSim, net.NetFrameBase + framesPlayed); // siguiente ronda 
 
 `FightState.RoundEndFrame` da el frame en que terminó la ronda (ambos peers derivan de él el inicio de la siguiente).
 `CharacterRoster.SetMoveTableOverride(id, table)` reemplaza la tabla de un personaje (mods / editor).
+
+Relay: `RelayServer(port, options)` (`Start()` / `Run(token)`, límites de salas, inactividad y paquetes/s) y `tools/relay`
+(servidor listo para ejecutar). `RelayRoom.GenerateCode/Derive` convierte el código de sala en id de sala + secreto del handshake.
 
 `INetTransport` (ventanas de inputs + ack + huella), `RemoteInputBuffer` (acotado), `RttEstimator`, `InputPacket`,
 `SessionCrypto/SessionKeys` (claves direccionales), `PacketAuthenticator`, `LoopbackPair` (red simulada determinista).
@@ -77,7 +83,8 @@ net.StartNextRound(newSim, net.NetFrameBase + framesPlayed); // siguiente ronda 
 - `FightDirector` — flujo de la sesión (intro, rondas, modos). `GameSession`, `GameSettings`, `InputAdapter`.
 - `Presentation/` — `FightPresentation` (2D / 2.5D / 3D), `WorldProjection`, `Hud`, `AudioManager`, `ParticlePool2D/3D`,
   `FightEventQueue` (tracer).
-- `Net/OnlineMatch`, `UI/*` (menús), `Tools/*` (editores de frame data y stages).
+- `Net/OnlineMatch` (directo o relay), `InputBindings` (controles reasignables), `Stages/StageLoader` (documento → `StageModule`),
+  `UI/*` (menús, controles, pausa, táctil), `Tools/*` (editores de frame data y stages).
 
 ## Presupuestos verificados
 

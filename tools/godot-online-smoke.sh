@@ -3,12 +3,22 @@
 # multi-round match over UDP on loopback. Both must finish without desync, agree on the confirmed-state hash of
 # the first round and report the same round count and score.
 # Usage: GODOT=/path/to/godot tools/godot-online-smoke.sh [port]
+#        RELAY=1 GODOT=... tools/godot-online-smoke.sh [port]   (peers meet through a local relay server instead)
 set -uo pipefail
 GODOT="${GODOT:-godot}"
 PORT="${1:-7791}"
 cd "$(dirname "$0")/.."
 tmp="$(mktemp -d)"
 common="--fury-port=$PORT --fury-round-seconds=3 --fury-quit=1800"
+relay_pid=""
+if [ -n "${RELAY:-}" ]; then
+  dotnet build tools/relay/Fury.Relay.csproj -c Release --nologo -v q > "$tmp/relay-build.log" 2>&1 || { echo "FAIL: relay build"; cat "$tmp/relay-build.log"; exit 1; }
+  dotnet tools/relay/bin/Release/net9.0/Fury.Relay.dll "$PORT" 127.0.0.1 > "$tmp/relay.log" 2>&1 &
+  relay_pid=$!
+  trap 'kill "$relay_pid" 2>/dev/null' EXIT
+  sleep 2
+  common="--fury-relay=127.0.0.1:$PORT --fury-room=SMOKE-ROOM-1 --fury-round-seconds=3 --fury-quit=1800"
+fi
 
 "$GODOT" --headless --path . res://scenes/game/fight.tscn -- --fury-online=host --fury-character=glen --fury-seed=11 $common > "$tmp/host.log" 2>&1 &
 host=$!

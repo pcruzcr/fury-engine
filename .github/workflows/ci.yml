@@ -73,3 +73,8 @@ jobs:
         run: tools/godot-online-smoke.sh
         env:
           GODOT: godot
+      - name: Online through a relay (two instances + relay server)
+        run: tools/godot-online-smoke.sh 7792
+        env:
+          GODOT: godot
+          RELAY: "1"

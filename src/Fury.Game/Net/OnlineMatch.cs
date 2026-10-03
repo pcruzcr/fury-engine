@@ -6,8 +6,11 @@ using Fury.Core.Sim;
 
 namespace Fury.Game.Net;
 
+/// <summary>Where to meet when the players cannot reach each other directly: a relay server and the secret room code they share.</summary>
+public sealed record RelaySettings(string Host, int Port, string RoomCode);
+
 /// <summary>
-/// One online match against a direct-connect peer, free of Godot types: runs the key exchange on a worker
+/// One online match against a peer reached directly or through a relay, free of Godot types: runs the key exchange on a worker
 /// thread, validates that both builds agree on rules and character data, then creates the simulation and
 /// the <see cref="NetplaySession"/>. The host is fighter slot 0, the guest slot 1; the guest's characters
 /// and rules must match bit-for-bit or the match is refused (a mismatch would desync on frame 1).
@@ -26,13 +29,11 @@ public sealed class OnlineMatch : IDisposable
     private readonly FightConfig _config;
     private readonly int _inputDelay;
     private readonly Task<(SessionKeys Keys, PeerSetup Peer)> _handshake;
-    private readonly string _remoteHost;
-    private readonly int _remotePort;
-    private readonly int _localPort;
     private readonly CancellationTokenSource _cancel = new();
     private CharacterConfig? _p1;
     private CharacterConfig? _p2;
     private IFightTracer? _tracer;
+    private IDatagramChannel? _channel;
 
     public OnlineMatch(
         bool host,
@@ -41,23 +42,49 @@ public sealed class OnlineMatch : IDisposable
         string localCharacterId,
         FightConfig config,
         int inputDelay,
-        ReadOnlyMemory<byte> matchToken = default)
+        ReadOnlyMemory<byte> matchToken = default,
+        RelaySettings? relay = null)
     {
         _host = host;
-        _remoteHost = remoteHost;
         _localCharacterId = localCharacterId;
         _config = config;
         _inputDelay = inputDelay;
 
-        // Two instances on one machine cannot share a port: on loopback the guest uses port + 1.
-        bool loopback = IPAddress.TryParse(remoteHost, out var ip) ? IPAddress.IsLoopback(ip) : remoteHost.Equals("localhost", StringComparison.OrdinalIgnoreCase);
-        _localPort = loopback && !host ? port + 1 : port;
-        _remotePort = loopback && host ? port + 1 : port;
-
         var character = CharacterRoster.Create(localCharacterId);
         byte[] token = matchToken.ToArray();
-        _handshake = Task.Run(() => UdpHandshake.Run(
-            _localPort, _remoteHost, _remotePort, localCharacterId, config.Fingerprint(), character.Fingerprint(), token, TimeSpan.FromSeconds(30), _cancel.Token));
+        ulong configHash = config.Fingerprint();
+        ulong characterHash = character.Fingerprint();
+
+        // The channel is opened on the worker thread (name resolution and the room key derivation block) and then belongs to
+        // the transport, so the handshake and the match use the same source port: a NAT or a relay sees one endpoint.
+        _handshake = Task.Run(() =>
+        {
+            byte[] secret = token;
+            IDatagramChannel channel;
+            if (relay != null)
+            {
+                // The room code yields both the room id (public to the relay) and the handshake secret (never sent).
+                var (roomId, roomSecret) = RelayRoom.Derive(relay.RoomCode);
+                secret = roomSecret;
+                channel = new RelayChannel(relay.Host, relay.Port, roomId);
+            }
+            else
+            {
+                channel = OpenDirect(remoteHost, port, host);
+            }
+
+            try
+            {
+                var result = UdpHandshake.Run(channel, localCharacterId, configHash, characterHash, secret, TimeSpan.FromSeconds(30), _cancel.Token);
+                _channel = channel;
+                return result;
+            }
+            catch
+            {
+                channel.Dispose();
+                throw;
+            }
+        });
     }
 
     public Phase Status { get; private set; } = Phase.Connecting;
@@ -105,15 +132,27 @@ public sealed class OnlineMatch : IDisposable
             _tracer = tracer;
 
             Sim = new FightSimulation(p1, p2, _config, tracer);
-            Transport = new UdpTransport(_localPort, _remoteHost, _remotePort, keys);
+            Transport = new UdpTransport(_channel!, keys);
+            _channel = null; // the transport owns it now
             Session = new NetplaySession(Sim, Transport, localInput, LocalSlot, _inputDelay);
             Status = Phase.Ready;
         }
         catch (Exception e) when (e is InvalidDataException or ArgumentException or System.Net.Sockets.SocketException)
         {
             keys.Dispose();
+            _channel?.Dispose();
+            _channel = null;
             Fail(e.Message);
         }
+    }
+
+    private static DirectChannel OpenDirect(string remoteHost, int port, bool host)
+    {
+        // Two instances on one machine cannot share a port: on loopback the guest uses port + 1.
+        bool loopback = IPAddress.TryParse(remoteHost, out var ip) ? IPAddress.IsLoopback(ip) : remoteHost.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+        int localPort = loopback && !host ? port + 1 : port;
+        int remotePort = loopback && host ? port + 1 : port;
+        return new DirectChannel(localPort, remoteHost, remotePort);
     }
 
     /// <summary>
@@ -139,6 +178,17 @@ public sealed class OnlineMatch : IDisposable
     {
         _cancel.Cancel();
         Transport?.Dispose();
+        if (Transport == null)
+        {
+            // Still handshaking, or finished but never polled: release the socket and keys when the worker is done.
+            _handshake.ContinueWith(
+                t =>
+                {
+                    if (t.IsCompletedSuccessfully) t.Result.Keys.Dispose();
+                    Interlocked.Exchange(ref _channel, null)?.Dispose();
+                },
+                TaskScheduler.Default);
+        }
         _cancel.Dispose();
     }
 }

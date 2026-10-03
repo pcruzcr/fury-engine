@@ -109,7 +109,7 @@ public sealed partial class FightDirector : Node
     /// <c>--fury-demo</c> AI vs AI; <c>--fury-view=0|1|2</c>; <c>--fury-frames=N</c> with <c>--fury-capture=file.png</c>
     /// saves a screenshot after N ticks and quits; <c>--fury-quit=N</c> quits after N ticks;
     /// <c>--fury-online=host|guest</c> (+ <c>--fury-remote=ip</c>, <c>--fury-port=n</c>, <c>--fury-character=id</c>,
-    /// <c>--fury-seed=n</c>) plays a CPU-driven online match and prints a confirmed-state hash for cross-checking.
+    /// <c>--fury-seed=n</c>, or <c>--fury-relay=host:port</c> + <c>--fury-room=CODE</c> to meet through a relay) plays a CPU-driven online match and prints a confirmed-state hash for cross-checking.
     /// </summary>
     private void ParseUserArgs()
     {
@@ -136,6 +136,16 @@ public sealed partial class FightDirector : Node
             }
             else if (arg.StartsWith("--fury-remote=", StringComparison.Ordinal)) GameSession.NetRemoteHost = arg[14..];
             else if (arg.StartsWith("--fury-port=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(12), out int port)) GameSession.NetPort = port;
+            else if (arg.StartsWith("--fury-relay=", StringComparison.Ordinal))
+            {
+                // host:port of a relay server; both peers must also pass the same --fury-room code.
+                string spec = arg[13..];
+                int colon = spec.LastIndexOf(':');
+                GameSession.NetUseRelay = true;
+                GameSession.NetRelayHost = colon < 0 ? spec : spec[..colon];
+                if (colon >= 0 && int.TryParse(spec.AsSpan(colon + 1), out int relayPort)) GameSession.NetRelayPort = relayPort;
+            }
+            else if (arg.StartsWith("--fury-room=", StringComparison.Ordinal)) GameSession.NetRoomCode = arg[12..];
             else if (arg.StartsWith("--fury-character=", StringComparison.Ordinal)) GameSession.P1CharacterId = arg[17..];
             else if (arg.StartsWith("--fury-stage=", StringComparison.Ordinal)) GameSettings.StageName = arg[13..];
             else if (arg.StartsWith("--fury-round-seconds=", StringComparison.Ordinal) && int.TryParse(arg.AsSpan(21), out int seconds) && seconds > 0) GameSession.RoundSecondsOverride = seconds;
@@ -221,7 +231,8 @@ public sealed partial class FightDirector : Node
     {
         _online = new OnlineMatch(
             GameSession.NetIsHost, GameSession.NetRemoteHost, GameSession.NetPort,
-            GameSession.P1CharacterId, BuildConfig(), GameSession.NetInputDelay);
+            GameSession.P1CharacterId, BuildConfig(), GameSession.NetInputDelay,
+            relay: GameSession.NetUseRelay ? new RelaySettings(GameSession.NetRelayHost, GameSession.NetRelayPort, GameSession.NetRoomCode) : null);
         _p1 = GameSession.CreateP1();
         _p2 = GameSession.CreateP2();
         _phase = Phase.Connecting;

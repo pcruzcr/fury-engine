@@ -48,6 +48,14 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
   HMAC sin estado y thread-safe; filtro de origen; recepción sin alocaciones; handshake con timeout y verificación de
   versión de reglas/personajes. El handshake sin token es anónimo (cifrado, no autenticado).
 - `NetplaySession` (Core, sin Godot) une transporte y rollback; `OnlineMatch` lo usa en Godot.
+- **Canales** (`IDatagramChannel`): `DirectChannel` (UDP a una dirección conocida; descarta otros orígenes antes de parsear) y
+  `RelayChannel`. Handshake y transporte comparten el mismo canal, así NAT y relay ven un único origen por jugador.
+- **Relay** (`RelayServer`, `tools/relay`): reenvía entre los dos jugadores de una sala sin poder leer ni falsificar nada
+  (todo va autenticado de extremo a extremo). Límites: salas, salas por dirección, inactividad, paquetes/s; sin amplificación.
+  El código de sala (PBKDF2) da el id de sala y el secreto que entra en el HKDF del handshake: sin el código, un relay que
+  suplanta a un jugador obtiene claves distintas y todo su tráfico se rechaza (test `Relay_WithoutTheRoomCode_...`).
+  Limitación honesta: el relay ve el id de sala, así que un código corto o inventado se puede adivinar offline; el juego
+  genera códigos de 50 bits.
 
 ### Replays
 - Formato FRY4 real: cabecera con huellas de reglas/personajes, inputs, checkpoints cada 60 frames, hash final y trailer
@@ -58,19 +66,26 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
   perspectiva y 3D con cámara orbital; la **simulación sigue siendo 2D** (no hay eje de profundidad jugable).
   Los personajes pueden aportar `res://characters/<id>/visual_2d.tscn` / `visual_3d.tscn` (con `AnimationPlayer`).
 - Eventos → VFX (partículas CPU), SFX polifónicos (sonidos procedurales de respaldo), shake y flash con opciones de
-  accesibilidad; HUD responsivo; menús funcionales (arcade, versus, training, online directo, replays, opciones).
+  accesibilidad; HUD responsivo; menús funcionales (arcade, versus, training, online directo o por relay, replays, opciones, controles reasignables, pausa).
+- **Stages**: editor → `user://stages/*.stage` → `StageLoader` (píxeles Y arriba → unidades de sim Y abajo, solo enteros) →
+  `StageModule` en la simulación → plataformas, peligros y fondo en las tres vistas. Solo offline: online usa el stage por
+  defecto y los replays no guardan geometría.
+- **Controles**: `InputBindings` guarda teclado y mando por acción (`user://`), `ControlsMenu` los reasigna y `PauseMenu` (Esc)
+  pausa la partida local; online no se puede pausar (la simulación sigue en el rival).
 
 ### Verificación
-- 299 tests + 13 de authoring; certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
+- 314 tests + 18 de authoring (incluye el relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
   rollback de dos peers, replay y restauración; `tools/godot-smoke.sh` carga todas las escenas y
-  `tools/godot-online-smoke.sh` juega una partida real entre dos procesos Godot por UDP y compara hashes.
+  `tools/godot-online-smoke.sh` juega una partida real entre dos procesos Godot por UDP (o con `RELAY=1`, a través de un relay)
+  y compara hashes. Tests, certificación (hashes idénticos) y smokes también se ejecutaron en Ubuntu 24.04 (WSL).
 - El golden F1 y los hashes de certificación se **regrabaron** (cambia el comportamiento de la simulación a propósito).
 
 ## Límites conocidos (no resueltos)
 - La simulación es de dos luchadores activos en un plano 2D: no hay combate 3D con esquiva lateral ni 4 jugadores.
 - Las plataformas son superficies de aterrizaje unidireccionales (sin colisión lateral).
 - No hay arte, animación ni audio final: las vistas usan formas primitivas hasta que se aporten escenas por personaje.
-- El online es conexión directa (IP:puerto) sin matchmaking, relay/NAT traversal ni reconexión.
+- El online es conexión directa o por relay con código de sala compartido a mano: no hay matchmaking/lobby, hole punching
+  ni reconexión. El relay no se ha probado en Internet real (solo loopback, Windows y Linux).
 - Las rondas (mejor de 3) se gestionan en el director, no dentro de la simulación. Online funciona con una **línea de
   tiempo de red continua**: cada ronda es una simulación nueva cuyo frame 0 es un frame de red acordado
   (`FightState.RoundEndFrame + 1 + resultados`, derivado de estado confirmado); `NetplaySession.StartNextRound` cambia la

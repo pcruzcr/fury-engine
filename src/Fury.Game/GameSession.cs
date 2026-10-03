@@ -34,11 +34,15 @@ public static class GameSession
     public static string P1CharacterId { get; set; } = "glen";
     public static string P2CharacterId { get; set; } = "kira";
 
-    // Online (direct connect). The host is slot 0, the guest slot 1.
+    // Online. The host is slot 0, the guest slot 1. Players connect directly, or through a relay when NetUseRelay is set.
     public static bool NetIsHost { get; set; } = true;
     public static string NetRemoteHost { get; set; } = "127.0.0.1";
     public static int NetPort { get; set; } = DefaultNetPort;
     public static int NetInputDelay { get; set; } = 2;
+    public static bool NetUseRelay { get; set; }
+    public static string NetRelayHost { get; set; } = "";
+    public static int NetRelayPort { get; set; } = DefaultNetPort;
+    public static string NetRoomCode { get; set; } = "";
 
     // Replay playback.
     public static string? ReplayPath { get; set; }
