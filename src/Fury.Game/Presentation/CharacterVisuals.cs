@@ -75,7 +75,19 @@ public static class CharacterVisuals
         return legacy == null ? null : SceneVisual3D.TryCreate(legacy, entry, 1.0);
     }
 
-    private static PackedScene? TryScene(CharacterEntry entry, string relative) => AssetLoader.LoadScene(entry.Resolve(relative));
+    /// <summary>
+    /// Authored scenes can carry scripts, so they only load from the game's own (res://) packs. A mod in user:// is data, never code:
+    /// it can bring sprites, sounds and a manifest, and a scene it names is ignored with a warning.
+    /// </summary>
+    private static PackedScene? TryScene(CharacterEntry entry, string relative)
+    {
+        if (!AssetLoader.IsTrusted(entry.Folder))
+        {
+            Godot.GD.PushWarning($"{entry.Id}: scene '{relative}' ignored: scenes can run scripts, so only shipped packs (res://) may use them.");
+            return null;
+        }
+        return AssetLoader.LoadScene(entry.Resolve(relative));
+    }
 
     /// <summary>Convention of the first version: <c>res://characters/&lt;id&gt;/visual_2d.tscn</c> next to no manifest.</summary>
     private static PackedScene? LegacyScene(CharacterEntry? entry, string file)

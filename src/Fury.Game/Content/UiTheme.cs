@@ -7,7 +7,7 @@ namespace Fury.Game.Content;
 /// Visual identity of the menus and the HUD, replaceable by art without code. Looked up in <c>res://ui/</c> then
 /// <c>user://ui/</c>:
 /// <list type="bullet">
-/// <item><c>theme.tres</c> a Godot <see cref="Theme"/> applied to every control of every scene (buttons, labels, panels...).
+/// <item><c>theme.tres</c> (<c>res://</c> only: a theme resource can reference scripts) a Godot <see cref="Theme"/> applied to every control of every scene (buttons, labels, panels...).
 /// It may define the type variations <c>HudHealthBar</c> and <c>HudMeterBar</c> (base type ProgressBar) to skin the HUD bars.</item>
 /// <item><c>font.ttf</c> / <c>font.otf</c> / <c>font.woff2</c> becomes the default font.</item>
 /// <item><c>menu_background.png</c> behind every menu, <c>logo.png</c> instead of the title text on the main menu.</item>
@@ -30,8 +30,9 @@ public static class UiTheme
         if (_applied) return;
         _applied = true;
 
+        // theme.tres is a resource that may reference scripts: only the game's own (res://) theme is loaded. Fonts and images are data.
         Theme? theme = null;
-        foreach (string root in Roots)
+        foreach (string root in Roots.Where(AssetLoader.IsTrusted))
         {
             string path = $"{root}/theme.tres";
             if (ResourceLoader.Exists(path) && ResourceLoader.Load<Theme>(path) is { } loaded)

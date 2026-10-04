@@ -40,13 +40,14 @@ internal static class ImpactStyle
 
 /// <summary>
 /// Art overrides for the impact effects: a scene named <c>impact_hit</c>, <c>impact_block</c>, <c>impact_ko</c> or <c>impact_rage</c>
-/// (<c>_3d</c> suffix for the 3D views) in <c>res://vfx/</c> or <c>user://vfx/</c> replaces the built-in particle burst. The scene's
+/// (<c>_3d</c> suffix for the 3D views) in <c>res://vfx/</c> (shipped content only) replaces the built-in particle burst. The scene's
 /// root can be any <see cref="Node2D"/> / <see cref="Node3D"/>; on every impact all particle emitters under it restart and its
 /// <c>AnimatedSprite</c> / <c>AnimationPlayer</c> (clip <c>play</c>, else the first one) start. Animated art hides itself when done.
 /// </summary>
 internal static class ImpactScenes
 {
-    private static readonly string[] Roots = ["res://vfx", "user://vfx"];
+    // Effect scenes can carry scripts: only the game's own (res://) effects are loaded, never a mod's.
+    private static readonly string[] Roots = ["res://vfx"];
 
     public static string KeyOf(ImpactKind kind) => kind switch
     {

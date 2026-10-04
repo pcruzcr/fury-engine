@@ -14,6 +14,12 @@ public static class AssetLoader
     private static readonly Dictionary<string, AudioStream?> Sounds = [];
     private static readonly HashSet<string> Warned = [];
 
+    /// <summary>
+    /// True for content that ships with the game (<c>res://</c>). Scenes and resources can carry scripts, so only trusted content may
+    /// supply them; everything under <c>user://</c> (mods) is limited to data files: images, sounds, JSON.
+    /// </summary>
+    public static bool IsTrusted(string? path) => path != null && path.StartsWith("res://", StringComparison.Ordinal);
+
     /// <summary>Forgets cached assets (after the content was reloaded or art was edited).</summary>
     public static void ClearCache()
     {

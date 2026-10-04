@@ -103,8 +103,15 @@ public partial class ContentCheck : Node
             else report.Error(where, $"portrait '{manifest.Portrait}' is missing or unreadable.");
         }
 
-        CheckScene(entry, manifest, visual.Scene2D, "scene2D", report);
-        CheckScene(entry, manifest, visual.Scene3D, "scene3D", report);
+        if (!AssetLoader.IsTrusted(entry.Folder) && (visual.Scene2D.Length > 0 || visual.Scene3D.Length > 0))
+        {
+            report.Warn(where, "scenes are ignored in mods (user://): a scene can run scripts, so only shipped packs (res://) may use them. Use sprite strips instead.");
+        }
+        else
+        {
+            CheckScene(entry, manifest, visual.Scene2D, "scene2D", report);
+            CheckScene(entry, manifest, visual.Scene3D, "scene3D", report);
+        }
 
         foreach (var (key, file) in manifest.Audio.Sfx)
         {

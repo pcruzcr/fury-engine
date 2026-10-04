@@ -205,16 +205,16 @@ Efectos en Opciones.
 
 ## 7. Efectos de impacto (VFX)
 
-Una escena `impact_hit`, `impact_block`, `impact_ko` o `impact_rage` (`.tscn`; sufijo `_3d` para 2.5D/3D) en `res://vfx/` o
-`user://vfx/` reemplaza la ráfaga de partículas de ese impacto. La raíz puede ser cualquier `Node2D` / `Node3D`; en cada impacto
+Una escena `impact_hit`, `impact_block`, `impact_ko` o `impact_rage` (`.tscn`; sufijo `_3d` para 2.5D/3D) en `res://vfx/` (solo contenido del juego, no mods)
+reemplaza la ráfaga de partículas de ese impacto. La raíz puede ser cualquier `Node2D` / `Node3D`; en cada impacto
 se reinician sus emisores de partículas (`CPUParticles*`, `GPUParticles*`) y arrancan sus `AnimatedSprite2D` y su
 `AnimationPlayer` (clip `play`, o el primero). El arte animado se oculta solo al terminar.
 
 ## 8. Interfaz
 
-En `res://ui/` (o `user://ui/`):
+En `res://ui/` (los archivos de datos —imágenes, fuente— también se leen de `user://ui/`):
 
-- `theme.tres`: un `Theme` de Godot aplicado a todos los controles. Define las variaciones de tipo `HudHealthBar` y
+- `theme.tres` (solo `res://`): un `Theme` de Godot aplicado a todos los controles. Define las variaciones de tipo `HudHealthBar` y
   `HudMeterBar` (base `ProgressBar`, estilos `fill` y `background`) para dar aspecto a las barras del HUD.
 - `font.ttf` / `font.otf` / `font.woff2`: fuente por defecto.
 - `menu_background.png` (fondo de todos los menús) y `logo.png` (sustituye al título del menú principal).
@@ -235,7 +235,10 @@ Godot traduce solo las etiquetas, botones y elementos de menú cuyo texto coinci
 - **Con el juego**: `res://characters`, `res://stages`, `res://audio`, `res://vfx`, `res://ui`. Los importa el editor y van al
   `.pck` al exportar (las carpetas `characters/_*` y los stages `_*` son plantillas y se excluyen).
 - **Mods**: las mismas carpetas bajo `user://` (en Windows `%APPDATA%\Godot\app_userdata\Dual Fury\`). Se leen directamente, sin
-  importar; pensado para trabajo en curso y contenido de la comunidad. Un `id` repetido se ignora con un aviso.
+  importar; pensado para trabajo en curso y contenido de la comunidad. Un `id` repetido se ignora con un aviso. **Un mod es solo
+  datos, nunca código**: una escena (`.tscn`) o un tema (`.tres`) puede llevar scripts, así que las escenas de personaje, las escenas
+  de VFX y `theme.tres` solo se cargan desde `res://` (en un mod se ignoran con un aviso: usa tiras de sprites). Imágenes, sonidos
+  `.ogg` / `.mp3`, fuentes y JSON sí se aceptan desde `user://`.
 - **Online y replays**: los paquetes de personaje deben estar instalados en ambos lados (si no, el mensaje lo dice). Los stages
   propios solo se usan offline.
 
