@@ -1,0 +1,15 @@
+{
+  // A character made of authored scenes instead of sprite strips: the scenes' AnimationPlayer clips use the
+  // same names (idle, walk_forward, attack, hit...). Only "idle" is required; missing clips fall back to idle.
+  "schema": 1,
+  "id": "templatescene",
+  "displayName": "Scene Template",
+  "baseOn": "kira",
+  "portrait": "portrait.png",
+  "colors": { "primary": "#e6993a" },
+  "visual": {
+    "scale": 1.0,
+    "scene2D": "visual_2d.tscn",
+    "scene3D": "visual_3d.tscn"
+  }
+}

@@ -46,6 +46,10 @@ characters/ryu/                      (o user://characters/ryu/ para mods; las ca
   sfx/hit_light.ogg, voice_hurt.ogg  sonidos propios
 ```
 
+Los movimientos se editan con el **editor de frame data** (menú, builds de debug), que guarda `user://characters/<id>.fmt2`; ese archivo
+se aplica por encima de la tabla del personaje al arrancar. Para distribuirlo con el paquete, cópialo como `moves.fmt2` junto al
+`character.json` (y pon `"moves": "moves.fmt2"`).
+
 ### `character.json`
 
 Admite comentarios `//` y comas finales. Todos los campos tienen valor por defecto salvo `id` y `moves`/`baseOn`.
@@ -218,6 +222,14 @@ En `res://ui/` (o `user://ui/`):
   para cuando un tema completo es demasiado.
 - Los retratos de los personajes aparecen en la selección y junto a las barras del HUD.
 
+## 8b. Idiomas
+
+Cada `i18n/<código>.json` (en `res://i18n` o `user://i18n`; `es.json`, `pt_BR.json`...) es un mapa plano **del texto en inglés del juego a su traducción**,
+con una entrada `"_name"` con el nombre del idioma en sí mismo. Admite comentarios. Un texto sin traducción (o con valor vacío) se muestra en
+inglés. Si el texto lleva marcadores (`{0}`, `{1}`), la traducción debe conservarlos (el validador avisa si no; se pueden reordenar).
+Godot traduce solo las etiquetas, botones y elementos de menú cuyo texto coincide con una clave; los textos construidos en código usan
+`Localization.T` / `Localization.F`. Opciones → Idioma elige uno (o «Automático», que sigue el idioma del sistema). Se incluye `i18n/es.json`.
+
 ## 9. Dónde viven los archivos y cómo se distribuyen
 
 - **Con el juego**: `res://characters`, `res://stages`, `res://audio`, `res://vfx`, `res://ui`. Los importa el editor y van al
@@ -232,4 +244,5 @@ En `res://ui/` (o `user://ui/`):
 - La simulación es de dos luchadores en un plano 2D; el 3D es una presentación de ese plano (no hay esquiva lateral).
 - Las capas de stage en 3D son tarjetas, no geometría; no hay un suelo 3D pintable.
 - Una escena con `AnimationPlayer` no puede reproducir audio ni ejecutar métodos desde sus pistas (se controla por `Seek`).
+- Los textos que se arman con datos del juego (mensajes de error, nombres de movimiento del modo entrenamiento...) siguen en inglés.
 - Un relay o un servidor no distribuye arte: cada jugador necesita sus propios archivos.

@@ -394,3 +394,67 @@ public class PresentationPoseTests
         Assert.False(AnimationNames.DefaultLoop("intro"));
     }
 }
+
+/// <summary>Interface languages as flat JSON files keyed by the English text.</summary>
+public class LocalizationTests
+{
+    [Fact]
+    public void Parse_ReadsNameAndMessages_AllowingCommentsAndEmptyValues()
+    {
+        const string json = """
+            {
+              // Spanish
+              "_name": "Español",
+              "PLAY": "JUGAR",
+              "ROUND {0}": "RONDA {0}",
+              "Untranslated yet": "",
+            }
+            """;
+        var (table, report) = LocalizationTable.Parse("es", json);
+
+        Assert.NotNull(table);
+        Assert.False(report.HasErrors);
+        Assert.Equal("Español", table!.Name);
+        Assert.Equal("JUGAR", table.Messages["PLAY"]);
+        Assert.Equal("RONDA {0}", table.Messages["ROUND {0}"]);
+        Assert.DoesNotContain("Untranslated yet", table.Messages.Keys);
+        Assert.DoesNotContain("_name", table.Messages.Keys);
+    }
+
+    [Fact]
+    public void Parse_WarnsAboutLostPlaceholders_AndAMissingName()
+    {
+        var (table, report) = LocalizationTable.Parse("fr", """{ "ROUND {0}": "MANCHE", "{1} of {0}": "{0} de {1}" }""");
+
+        Assert.NotNull(table);
+        Assert.Contains(report.Issues, i => i.Severity == IssueSeverity.Warning && i.Message.Contains("'ROUND {0}'", StringComparison.Ordinal));
+        Assert.DoesNotContain(report.Issues, i => i.Message.Contains("'{1} of {0}'", StringComparison.Ordinal)); // reordered is fine
+        Assert.Contains(report.Issues, i => i.Message.Contains("_name", StringComparison.Ordinal));
+        Assert.Equal("fr", table!.Name);
+    }
+
+    [Theory]
+    [InlineData("es", "not json")]
+    [InlineData("es", """{ "PLAY": 3 }""")]
+    [InlineData("es", "null")]
+    [InlineData("Spanish", "{}")]
+    [InlineData("", "{}")]
+    public void Parse_RejectsUnusableFiles(string code, string json)
+    {
+        var (table, report) = LocalizationTable.Parse(code, json);
+        Assert.Null(table);
+        Assert.True(report.HasErrors);
+    }
+
+    [Fact]
+    public void LocaleCodes_AreLanguageAndOptionalRegion()
+    {
+        Assert.True(LocalizationTable.IsValidCode("es"));
+        Assert.True(LocalizationTable.IsValidCode("pt_BR"));
+        Assert.True(LocalizationTable.IsValidCode("fil"));
+        Assert.False(LocalizationTable.IsValidCode("pt-br"));
+        Assert.False(LocalizationTable.IsValidCode("E"));
+        Assert.False(LocalizationTable.IsValidCode(null));
+        Assert.Equal(new[] { 0, 1 }, LocalizationTable.PlaceholdersOf("{1} of {0} and {0}"));
+    }
+}

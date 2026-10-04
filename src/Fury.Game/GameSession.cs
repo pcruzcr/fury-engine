@@ -51,7 +51,8 @@ public static class GameSession
     /// <summary>Overrides the round length in seconds when greater than 0 (tests and CI; both online peers must use the same value).</summary>
     public static int RoundSecondsOverride { get; set; }
 
-    public static CharacterConfig CreateP1() => CharacterRoster.Create(P1CharacterId);
+    /// <summary>The chosen fighters; an id whose content pack is no longer installed falls back to a built-in character instead of crashing.</summary>
+    public static CharacterConfig CreateP1() => CharacterRoster.Create(CharacterRoster.Contains(P1CharacterId) ? P1CharacterId : "glen");
 
-    public static CharacterConfig CreateP2() => CharacterRoster.Create(P2CharacterId);
+    public static CharacterConfig CreateP2() => CharacterRoster.Create(CharacterRoster.Contains(P2CharacterId) ? P2CharacterId : "kira");
 }

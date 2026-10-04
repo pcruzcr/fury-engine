@@ -72,6 +72,7 @@ public sealed partial class FightDirector : Node
     public override void _Ready()
     {
         GameSettings.ApplyAudio();
+        Localization.Apply(GameSettings.Language);
         UiTheme.Apply(this);
         Tools.CharacterMods.LoadAll();
         InputBindings.Load();
@@ -132,7 +133,7 @@ public sealed partial class FightDirector : Node
 
     private void ShowChampion(int winner)
     {
-        _hud.ShowBanner($"{WinnerName(winner)}\nPress ENTER", 0f);
+        _hud.ShowBanner($"{WinnerName(winner)}\n{Localization.T("Press ENTER")}", 0f);
         if (winner < 0) return;
         _audio.Play(Sfx.Win, who: EntryOf(winner));
         _audio.PlayCharacter(EntryOf(winner), "voice_win");
@@ -269,7 +270,7 @@ public sealed partial class FightDirector : Node
         _recorder = record ? new ReplayRecorder(_sim, ReplayHeader.For(_p1, _p2, cfg)) : null;
 
         EnterPhase(Phase.Intro);
-        _hud.ShowBanner(GameSession.Mode == GameMode.Training ? "TRAINING" : $"ROUND {_round}", 1.0f);
+        _hud.ShowBanner(GameSession.Mode == GameMode.Training ? Localization.T("TRAINING") : Localization.F("ROUND {0}", _round), 1.0f);
         _audio.Play(Sfx.RoundStart);
     }
 
@@ -313,7 +314,7 @@ public sealed partial class FightDirector : Node
     private void Fail(string message)
     {
         _phase = Phase.Failed;
-        _hud.ShowBanner($"{message}\n\nPress ESC", 0f);
+        _hud.ShowBanner($"{message}\n\n{Localization.T("Press ESC")}", 0f);
     }
 
     private void EnterPhase(Phase phase)
@@ -617,7 +618,7 @@ public sealed partial class FightDirector : Node
         _view.Bind(_sim);
         _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), _sim.Config.MaxHealth, Content.ContentLibrary.Portrait(_p1.Id), Content.ContentLibrary.Portrait(_p2.Id));
         _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
-        _hud.ShowBanner($"ROUND {_round}", 1.0f);
+        _hud.ShowBanner(Localization.F("ROUND {0}", _round), 1.0f);
         _audio.Play(Sfx.RoundStart);
         EnterPhase(Phase.Fighting);
     }
@@ -653,7 +654,9 @@ public sealed partial class FightDirector : Node
         }
     }
 
-    private string WinnerName(int winner) => winner < 0 ? "DRAW GAME" : $"{Content.ContentLibrary.DisplayName(winner == 0 ? _p1.Id : _p2.Id).ToUpperInvariant()} WINS";
+    private string WinnerName(int winner) => winner < 0
+        ? Localization.T("DRAW GAME")
+        : Localization.F("{0} WINS", Content.ContentLibrary.DisplayName(winner == 0 ? _p1.Id : _p2.Id).ToUpperInvariant());
 
     private void SaveReplay()
     {

@@ -110,6 +110,7 @@ GODOT=/ruta/a/godot tools/validate-content.sh
   `victory`) o por stage, con crossfade. Volúmenes maestro / música / efectos en Opciones.
 - **VFX**: escenas `res://vfx/impact_hit|block|ko|rage(.tscn)` reemplazan las partículas de impacto.
 - **UI**: `res://ui/theme.tres` (incluye variaciones `HudHealthBar` / `HudMeterBar`), fuente, fondo de menú, logo y skins del HUD.
+- **Idiomas**: `i18n/<código>.json` (texto en inglés → traducción); `i18n/es.json` incluido, selector en Opciones → Idioma.
 - **Mods**: las mismas carpetas bajo `user://` se leen sin importar. Las carpetas que empiezan por `_` son plantillas y no se
   cargan salvo con `--fury-templates` (tampoco se exportan).
 

@@ -45,6 +45,9 @@ public static class GameSettings
     /// <summary>Master volume, linear 0..1.</summary>
     public static float MasterVolume { get; set; } = 0.8f;
 
+    /// <summary>Interface language: a locale code from <c>i18n/</c>, <c>"en"</c>, or empty to follow the system.</summary>
+    public static string Language { get; set; } = "";
+
     /// <summary>Music volume (the Music bus), linear 0..1.</summary>
     public static float MusicVolume { get; set; } = 0.7f;
 
@@ -64,6 +67,7 @@ public static class GameSettings
         ShowHitboxes = (bool)cfg.GetValue(Section, "hitboxes", ShowHitboxes);
         StageName = cfg.GetValue(Section, "stage", "").AsString();
         MasterVolume = Mathf.Clamp((float)cfg.GetValue(Section, "master_volume", MasterVolume), 0f, 1f);
+        Language = cfg.GetValue(Section, "language", "").AsString();
         MusicVolume = Mathf.Clamp((float)cfg.GetValue(Section, "music_volume", MusicVolume), 0f, 1f);
         SfxVolume = Mathf.Clamp((float)cfg.GetValue(Section, "sfx_volume", SfxVolume), 0f, 1f);
     }
@@ -78,6 +82,7 @@ public static class GameSettings
         cfg.SetValue(Section, "hitboxes", ShowHitboxes);
         cfg.SetValue(Section, "stage", StageName);
         cfg.SetValue(Section, "master_volume", MasterVolume);
+        cfg.SetValue(Section, "language", Language);
         cfg.SetValue(Section, "music_volume", MusicVolume);
         cfg.SetValue(Section, "sfx_volume", SfxVolume);
         cfg.Save(Path);

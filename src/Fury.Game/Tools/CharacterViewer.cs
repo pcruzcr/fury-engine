@@ -215,11 +215,20 @@ public partial class CharacterViewer : Control
         _viewPicker.Selected = (int)_mode;
 
         int keepPose = _posePicker.Selected;
+        int keepFrame = _frame;
         BuildSimulation();
         BuildPoseList();
         if (keepPose >= 0 && keepPose < _poses.Count) _posePicker.Selected = keepPose; // changing the view or reloading keeps what you were looking at
         _suppress = false;
         OnPoseChanged();
+        if (keepPose >= 0 && keepPose < _poses.Count)
+        {
+            _frame = System.Math.Min(keepFrame, (int)_frameSlider.MaxValue); // a reload or a view change must not rewind what you were studying
+            _suppress = true;
+            _frameSlider.Value = _frame;
+            _suppress = false;
+            Apply();
+        }
     }
 
     private void BuildSimulation()

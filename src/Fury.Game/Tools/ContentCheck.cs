@@ -27,6 +27,9 @@ public partial class ContentCheck : Node
             CheckFiles(entry, entry.Manifest, report);
         }
 
+        Localization.Reload();
+        report.AddRange(Localization.Report.Issues);
+
         int checkedStages = 0;
         foreach (string name in Stages.StageLoader.List())
         {
@@ -35,7 +38,7 @@ public partial class ContentCheck : Node
         }
 
         foreach (var issue in report.Issues) GD.Print(issue.ToString());
-        GD.Print($"{checkedPacks} character pack(s) and {checkedStages} stage(s) checked: {report.ErrorCount} error(s), {report.WarningCount} warning(s).");
+        GD.Print($"{checkedPacks} character pack(s), {checkedStages} stage(s) and {Localization.Languages.Count} language(s) checked: {report.ErrorCount} error(s), {report.WarningCount} warning(s).");
         GetTree().Quit(report.HasErrors ? 1 : 0);
     }
 

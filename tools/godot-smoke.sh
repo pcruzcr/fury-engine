@@ -24,6 +24,7 @@ run_scene() {
 run_scene res://scenes/boot/boot.tscn
 run_scene res://scenes/menu/main_menu.tscn
 run_scene res://scenes/menu/options.tscn
+run_scene res://scenes/menu/online.tscn -- --fury-language=es
 run_scene res://scenes/menu/controls.tscn
 run_scene res://scenes/menu/online.tscn
 run_scene res://scenes/menu/replays.tscn
@@ -40,6 +41,8 @@ run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-templates --fury-ch
 run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-templates --fury-character=template --fury-opponent=kira --fury-view=1
 run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-templates --fury-stage=_template --fury-character=template --fury-opponent=kira
 run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-templates --fury-stage=_template --fury-character=template --fury-opponent=kira --fury-view=1
+run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-templates --fury-character=templatescene --fury-opponent=kira
+run_scene res://scenes/game/fight.tscn -- --fury-demo --fury-templates --fury-character=templatescene --fury-opponent=kira --fury-view=2
 echo "== content validator =="
 check=$("$GODOT" --headless --path . res://scenes/tools/content_check.tscn -- --fury-templates 2>&1) || true
 echo "$check" | tail -5

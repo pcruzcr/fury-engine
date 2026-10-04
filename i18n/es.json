@@ -1,0 +1,107 @@
+{
+  // Español. La clave es el texto en inglés tal como aparece en el juego; un texto sin traducción se muestra en inglés.
+  "_name": "Español",
+
+  // Menú principal
+  "ARCADE": "ARCADE",
+  "VERSUS": "VERSUS",
+  "TRAINING": "ENTRENAMIENTO",
+  "ONLINE": "ONLINE",
+  "REPLAYS": "REPETICIONES",
+  "OPTIONS": "OPCIONES",
+  "QUIT": "SALIR",
+  "FRAME DATA EDITOR": "EDITOR DE FRAME DATA",
+  "STAGE EDITOR": "EDITOR DE STAGES",
+  "ART VIEWER": "VISOR DE ARTE",
+
+  // Selección de personaje
+  "SELECT YOUR FIGHTER": "ELIGE A TU LUCHADOR",
+  "CHOOSE YOUR CHARACTER": "ELIGE TU PERSONAJE",
+  "PLAYER {0} - CHOOSE": "JUGADOR {0} - ELIGE",
+  "BACK": "VOLVER",
+  "Back": "Volver",
+
+  // Opciones
+  "Language": "Idioma",
+  "Automatic": "Automático",
+  "Presentation": "Presentación",
+  "2D (flat)": "2D (plano)",
+  "2.5D (perspective)": "2.5D (perspectiva)",
+  "3D (cinematic camera)": "3D (cámara cinematográfica)",
+  "Stage (offline modes)": "Escenario (modos sin conexión)",
+  "Default arena": "Arena por defecto",
+  "Master volume": "Volumen general",
+  "Music volume": "Volumen de la música",
+  "Effects volume": "Volumen de los efectos",
+  "Reduce motion (no camera shake)": "Reducir movimiento (sin sacudidas de cámara)",
+  "Reduce flashes (photosensitivity)": "Reducir destellos (fotosensibilidad)",
+  "Show hitboxes": "Mostrar hitboxes",
+  "Debug overlay (F3)": "Información de depuración (F3)",
+  "CONTROLS": "CONTROLES",
+  "Every key and pad button can be remapped in CONTROLS.\nIn a fight: F1 hitboxes / F2 view / F3 debug / Esc pause":
+    "Todas las teclas y botones del mando se reasignan en CONTROLES.\nEn combate: F1 hitboxes / F2 vista / F3 depuración / Esc pausa",
+
+  // Controles
+  "Action": "Acción",
+  "Player 1 key": "Tecla del jugador 1",
+  "Player 2 key": "Tecla del jugador 2",
+  "Gamepad": "Mando",
+  "D-pad / stick": "Cruceta / palanca",
+  "Reset to defaults": "Restaurar valores por defecto",
+  "Defaults restored.": "Valores restaurados.",
+  "Saved.": "Guardado.",
+  "Cancelled.": "Cancelado.",
+  "press a key...": "pulsa una tecla...",
+  "press a pad button...": "pulsa un botón del mando...",
+  "Select a button and press the new key. Esc cancels.": "Elige un botón y pulsa la nueva tecla. Esc cancela.",
+
+  // Online
+  "One player hosts, the other joins. Direct needs the host's UDP port forwarded; a relay needs nothing.":
+    "Uno hace de anfitrión y el otro se une. La conexión directa necesita el puerto UDP del anfitrión abierto; con un relay no hace falta nada.",
+  "I am the host": "Soy el anfitrión",
+  "Use a relay server (no port forwarding)": "Usar un servidor relay (sin abrir puertos)",
+  "Opponent address": "Dirección del rival",
+  "opponent IP or host name": "IP o nombre del rival",
+  "UDP port": "Puerto UDP",
+  "Relay address": "Dirección del relay",
+  "relay address": "dirección del relay",
+  "Relay UDP port": "Puerto UDP del relay",
+  "Room code": "Código de sala",
+  "XXXXX-XXXXX (same on both sides)": "XXXXX-XXXXX (el mismo en ambos lados)",
+  "NEW": "NUEVO",
+  "Share the code with your opponent privately: it is the secret that keeps the relay out of your match.":
+    "Comparte el código con tu rival en privado: es el secreto que deja al relay fuera de vuestra partida.",
+  "Input delay (frames)": "Retraso de entrada (frames)",
+  "CHOOSE FIGHTER & CONNECT": "ELEGIR LUCHADOR Y CONECTAR",
+  "Enter the opponent's address.": "Introduce la dirección del rival.",
+  "Enter the relay address.": "Introduce la dirección del relay.",
+  "The room code needs at least {0} characters (press NEW to generate one).":
+    "El código de sala necesita al menos {0} caracteres (pulsa NUEVO para generar uno).",
+
+  // Repeticiones
+  "PLAY": "VER",
+  "DELETE": "BORRAR",
+  "No replays yet: finish an Arcade or Versus round.": "Aún no hay repeticiones: termina una ronda de Arcade o Versus.",
+
+  // Pausa
+  "PAUSED": "PAUSA",
+  "RESUME": "CONTINUAR",
+  "RESTART": "REINICIAR",
+  "CHANGE FIGHTER": "CAMBIAR DE LUCHADOR",
+  "MAIN MENU": "MENÚ PRINCIPAL",
+  "DUMMY: {0}  (F5)": "MUÑECO: {0}  (F5)",
+
+  // Combate
+  "FIGHT!": "¡LUCHA!",
+  "CONNECTING...": "CONECTANDO...",
+  "ROUND {0}": "RONDA {0}",
+  "K.O.": "K.O.",
+  "TIME UP": "TIEMPO",
+  "DRAW": "EMPATE",
+  "DRAW GAME": "PARTIDA EMPATADA",
+  "{0} WINS": "¡GANA {0}!",
+  "Press ENTER": "Pulsa ENTER",
+  "Press ESC": "Pulsa ESC",
+  "END OF REPLAY\nPress ESC": "FIN DE LA REPETICIÓN\nPulsa ESC",
+  "REPLAY  ·  SPACE pause  ·  → step": "REPETICIÓN  ·  ESPACIO pausa  ·  → avanzar"
+}

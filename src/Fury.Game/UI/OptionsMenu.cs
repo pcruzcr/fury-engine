@@ -23,6 +23,20 @@ public partial class OptionsMenu : Control
         };
         UiKit.Row(column, "Presentation", view);
 
+        var language = new OptionButton();
+        language.AddItem("Automatic");
+        language.AddItem("English");
+        foreach (var table in Content.Localization.Languages) language.AddItem(table.Name);
+        language.Selected = GameSettings.Language.Length == 0 ? 0 : GameSettings.Language == "en" ? 1 : 2 + Content.Localization.Languages.ToList().FindIndex(t => t.Code == GameSettings.Language);
+        if (language.Selected < 0) language.Selected = 0;
+        language.ItemSelected += i =>
+        {
+            GameSettings.Language = i == 0 ? "" : i == 1 ? "en" : Content.Localization.Languages[(int)i - 2].Code;
+            Content.Localization.Apply(GameSettings.Language);
+            GameSettings.Save();
+        };
+        UiKit.Row(column, "Language", language);
+
         var stages = new OptionButton();
         stages.AddItem("Default arena");
         var names = Stages.StageLoader.List();

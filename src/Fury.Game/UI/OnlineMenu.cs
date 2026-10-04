@@ -84,7 +84,7 @@ public partial class OnlineMenu : Control
 
         if (relay && RelayRoom.Normalize(_roomCode.Text).Length < RelayRoom.MinCodeLength)
         {
-            _status.Text = $"The room code needs at least {RelayRoom.MinCodeLength} characters (press NEW to generate one).";
+            _status.Text = Content.Localization.F("The room code needs at least {0} characters (press NEW to generate one).", RelayRoom.MinCodeLength);
             return;
         }
 

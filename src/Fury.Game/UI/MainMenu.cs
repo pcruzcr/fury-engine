@@ -8,11 +8,20 @@ public partial class MainMenu : Control
     public override void _Ready()
     {
         GameSettings.Load();
+        Content.Localization.Apply(GameSettings.Language);
         GameSettings.ApplyAudio();
         Content.UiTheme.Apply(this);
         Fury.Game.Tools.CharacterMods.LoadAll();
         InputBindings.Load();
         Presentation.Jukebox.Play(this, "menu", silenceIfMissing: true);
+
+        if (OS.GetCmdlineUserArgs().Contains("--fury-report"))
+        {
+            // Export / CI self-check: what the running build found (works in exported builds, where scenes cannot be chosen).
+            GD.Print($"[fury] content: {Content.ContentLibrary.Characters.Count} characters, {Content.Localization.Languages.Count} languages, {Stages.StageLoader.List().Count} stages");
+            GetTree().Quit();
+            return;
+        }
 
         var column = UiKit.CenterColumn(this);
         var logo = Content.UiTheme.Texture("logo.png");

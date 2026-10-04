@@ -10,6 +10,8 @@ internal static class UiKit
     /// <summary>Full-screen background plus a centered vertical column; returns the column.</summary>
     public static VBoxContainer CenterColumn(Control host, int separation = 12)
     {
+        Content.Localization.EnsureApplied();
+        DevCapture.AttachIfRequested(host);
         Control background;
         var picture = Content.UiTheme.Texture("menu_background.png");
         if (picture != null)

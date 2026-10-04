@@ -56,7 +56,7 @@ public sealed partial class PauseMenu : CanvasLayer
         UiKit.Title(column, "PAUSED", 56);
         _resume = UiKit.Button(column, "RESUME", () => ResumeRequested?.Invoke());
         UiKit.Button(column, "RESTART", () => RestartRequested?.Invoke());
-        if (_training) _dummy = UiKit.Button(column, "DUMMY: STAND  (F5)", () => DummyRequested?.Invoke());
+        if (_training) _dummy = UiKit.Button(column, Content.Localization.F("DUMMY: {0}  (F5)", "STAND"), () => DummyRequested?.Invoke());
         UiKit.Button(column, "CHANGE FIGHTER", () => CharacterSelectRequested?.Invoke());
         UiKit.Button(column, "MAIN MENU", () => MainMenuRequested?.Invoke());
     }
@@ -72,6 +72,6 @@ public sealed partial class PauseMenu : CanvasLayer
     /// <summary>Shows the dummy's current mode on its button.</summary>
     public void SetDummyLabel(DummyMode mode)
     {
-        if (_dummy != null) _dummy.Text = $"DUMMY: {mode.ToString().ToUpperInvariant()}  (F5)";
+        if (_dummy != null) _dummy.Text = Content.Localization.F("DUMMY: {0}  (F5)", mode.ToString().ToUpperInvariant());
     }
 }

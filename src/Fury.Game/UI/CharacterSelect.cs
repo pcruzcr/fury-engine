@@ -68,7 +68,7 @@ public partial class CharacterSelect : Control
 
     private static bool NeedsSecondPick => GameSession.Mode == GameMode.Versus;
 
-    private void RefreshPrompt() => _prompt.Text = NeedsSecondPick ? $"PLAYER {_picking + 1} - CHOOSE" : "CHOOSE YOUR CHARACTER";
+    private void RefreshPrompt() => _prompt.Text = NeedsSecondPick ? Content.Localization.F("PLAYER {0} - CHOOSE", _picking + 1) : Content.Localization.T("CHOOSE YOUR CHARACTER");
 
     private void Pick(string id)
     {
