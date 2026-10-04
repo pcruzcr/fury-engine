@@ -90,7 +90,7 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
   pausa la partida local; online no se puede pausar (la simulación sigue en el rival).
 
 ### Verificación
-- 320 tests + 58 de authoring (manifiestos, cargador, roster, resolución y tiempos de animación, capas de stage; relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
+- 320 tests + 66 de authoring (manifiestos, cargador, roster, resolución y tiempos de animación, capas de stage, idiomas; relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
   rollback de dos peers, replay y restauración; `tools/godot-smoke.sh` carga todas las escenas y
   `tools/godot-online-smoke.sh` juega una partida real entre dos procesos Godot por UDP (o con `RELAY=1`, a través de un relay)
   y compara hashes. Tests, certificación (hashes idénticos) y smokes también se ejecutaron en Ubuntu 24.04 (WSL).
