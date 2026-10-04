@@ -12,7 +12,17 @@ internal sealed record StageDto(
     float Gravity,
     ColorDto BackgroundColor,
     List<PlatformData> Platforms,
-    List<HazardData> Hazards);
+    List<HazardData> Hazards)
+{
+    // Added after the first stage format: older files lack them and keep the defaults.
+    public List<BackgroundLayer>? Layers { get; init; }
+
+    public string? Music { get; init; }
+
+    public bool? DefaultFloor { get; init; }
+
+    public bool? PixelArt { get; init; }
+}
 
 /// <summary>Source-generated JSON metadata: no reflection, trimming- and AOT-safe (iOS / consoles).</summary>
 [JsonSourceGenerationOptions(WriteIndented = true)]
@@ -33,7 +43,13 @@ public static class StageSerializer
         ArgumentNullException.ThrowIfNull(stage);
         var c = stage.BackgroundColor;
         var dto = new StageDto(stage.Name, stage.Width, stage.Height, stage.Gravity,
-            new ColorDto(c.R, c.G, c.B, c.A), stage.Platforms, stage.Hazards);
+            new ColorDto(c.R, c.G, c.B, c.A), stage.Platforms, stage.Hazards)
+        {
+            Layers = stage.Layers,
+            Music = stage.Music,
+            DefaultFloor = stage.DefaultFloor,
+            PixelArt = stage.PixelArt,
+        };
         return JsonSerializer.Serialize(dto, StageJsonContext.Default.StageDto);
     }
 
@@ -63,7 +79,13 @@ public static class StageSerializer
             BackgroundColor = new ColorRgba(dto.BackgroundColor.R, dto.BackgroundColor.G, dto.BackgroundColor.B, dto.BackgroundColor.A),
             Platforms = dto.Platforms ?? new List<PlatformData>(),
             Hazards = dto.Hazards ?? new List<HazardData>(),
+            Layers = dto.Layers ?? new List<BackgroundLayer>(),
+            Music = dto.Music ?? "",
+            DefaultFloor = dto.DefaultFloor ?? true,
+            PixelArt = dto.PixelArt ?? false,
         };
+        stage.Layers.RemoveAll(l => l is null);
+        foreach (var layer in stage.Layers) layer.Image ??= "";
         stage.Validate();
         return stage;
     }

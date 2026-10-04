@@ -351,9 +351,9 @@ public partial class StageEditor : Control
             _status.Text = "That stage file is missing or invalid";
             return;
         }
-        _stage = loaded;
+        _stage = loaded.Data;
         _selected = ElementCount > 0 ? 0 : -1;
         SyncAll();
-        _status.Text = $"Loaded {loaded.Name}";
+        _status.Text = $"Loaded {loaded.Data.Name}";
     }
 }

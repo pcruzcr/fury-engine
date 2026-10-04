@@ -1,3 +1,4 @@
+using Fury.Game.Content;
 using Godot;
 
 namespace Fury.Game.Presentation;
@@ -29,6 +30,7 @@ public sealed partial class Hud : CanvasLayer
     private Label _name1 = null!, _name2 = null!, _timer = null!, _combo1 = null!, _combo2 = null!;
     private Label _pips1 = null!, _pips2 = null!, _banner = null!, _debug = null!;
     private ColorRect _flash = null!;
+    private TextureRect _portrait1 = null!, _portrait2 = null!;
     private HudState _last = new(-1, -1, -1, -1, -1, -1, -1, false, false);
 
     public override void _Ready()
@@ -51,6 +53,8 @@ public sealed partial class Hud : CanvasLayer
         bar.AddThemeConstantOverride("separation", 16);
         margin.AddChild(bar);
 
+        _portrait1 = MakePortrait();
+        bar.AddChild(_portrait1);
         bar.AddChild(BuildSide(false, out _name1, out _health1, out _meter1, out _pips1, out _combo1));
 
         _timer = new Label
@@ -64,6 +68,8 @@ public sealed partial class Hud : CanvasLayer
         bar.AddChild(_timer);
 
         bar.AddChild(BuildSide(true, out _name2, out _health2, out _meter2, out _pips2, out _combo2));
+        _portrait2 = MakePortrait();
+        bar.AddChild(_portrait2);
 
         _banner = new Label
         {
@@ -85,6 +91,15 @@ public sealed partial class Hud : CanvasLayer
         root.AddChild(_debug);
     }
 
+    private static TextureRect MakePortrait() => new()
+    {
+        Visible = false,
+        CustomMinimumSize = new Vector2(76, 76),
+        ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+        StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+        MouseFilter = Control.MouseFilterEnum.Ignore,
+    };
+
     private static VBoxContainer BuildSide(bool mirrored, out Label name, out ProgressBar health, out ProgressBar meter, out Label pips, out Label combo)
     {
         var box = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -94,9 +109,9 @@ public sealed partial class Hud : CanvasLayer
         name.AddThemeFontSizeOverride("font_size", 20);
         box.AddChild(name);
 
-        health = MakeBar(1000, 26, mirrored, new Color(0.95f, 0.8f, 0.2f), new Color(0.15f, 0.05f, 0.05f));
+        health = MakeBar(1000, 26, mirrored, new Color(0.95f, 0.8f, 0.2f), new Color(0.15f, 0.05f, 0.05f), "HudHealthBar", "health");
         box.AddChild(health);
-        meter = MakeBar(MaxMeter, 12, mirrored, new Color(0.3f, 0.7f, 1f), new Color(0.05f, 0.08f, 0.15f));
+        meter = MakeBar(MaxMeter, 12, mirrored, new Color(0.3f, 0.7f, 1f), new Color(0.05f, 0.08f, 0.15f), "HudMeterBar", "meter");
         box.AddChild(meter);
 
         pips = new Label { HorizontalAlignment = align };
@@ -108,10 +123,12 @@ public sealed partial class Hud : CanvasLayer
         return box;
     }
 
-    private static ProgressBar MakeBar(int max, int height, bool mirrored, Color fill, Color back)
+    /// <summary>A bar skinned by art when it provides a theme variation or a <c>ui/hud/&lt;skin&gt;_fill|_back.png</c>, flat colours otherwise.</summary>
+    private static ProgressBar MakeBar(int max, int height, bool mirrored, Color fill, Color back, string variation, string skin)
     {
         var bar = new ProgressBar
         {
+            ThemeTypeVariation = variation,
             MinValue = 0,
             MaxValue = max,
             Value = max,
@@ -120,14 +137,18 @@ public sealed partial class Hud : CanvasLayer
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             FillMode = (int)(mirrored ? ProgressBar.FillModeEnum.EndToBegin : ProgressBar.FillModeEnum.BeginToEnd),
         };
-        bar.AddThemeStyleboxOverride("fill", new StyleBoxFlat { BgColor = fill, CornerRadiusTopLeft = 3, CornerRadiusBottomRight = 3 });
-        bar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = back, BorderColor = Colors.Black, BorderWidthBottom = 2, BorderWidthTop = 2, BorderWidthLeft = 2, BorderWidthRight = 2 });
+        bar.AddThemeStyleboxOverride("fill", UiTheme.HudBar(variation, "fill", $"{skin}_fill") ?? new StyleBoxFlat { BgColor = fill, CornerRadiusTopLeft = 3, CornerRadiusBottomRight = 3 });
+        bar.AddThemeStyleboxOverride("background", UiTheme.HudBar(variation, "background", $"{skin}_back") ?? new StyleBoxFlat { BgColor = back, BorderColor = Colors.Black, BorderWidthBottom = 2, BorderWidthTop = 2, BorderWidthLeft = 2, BorderWidthRight = 2 });
         return bar;
     }
 
     /// <summary>Sets the player names and the health scale (call when a fight starts).</summary>
-    public void Setup(string p1Name, string p2Name, int maxHealth)
+    public void Setup(string p1Name, string p2Name, int maxHealth, Texture2D? p1Portrait = null, Texture2D? p2Portrait = null)
     {
+        _portrait1.Texture = p1Portrait;
+        _portrait1.Visible = p1Portrait != null;
+        _portrait2.Texture = p2Portrait;
+        _portrait2.Visible = p2Portrait != null;
         _maxHealth = maxHealth;
         _health1.MaxValue = maxHealth;
         _health2.MaxValue = maxHealth;

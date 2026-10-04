@@ -28,6 +28,9 @@ public interface ICharacterVisual
 {
     Node Root { get; }
 
+    /// <summary>Name of the animation being shown (for the art viewer); null before the first frame or when none matched.</summary>
+    string? CurrentAnimation { get; }
+
     void Apply(in FighterSituation situation);
 }
 
@@ -104,6 +107,8 @@ internal sealed class AnimationPlayerDriver
     private string? _current;
     private Animation? _animation;
 
+    public string? Current => _current;
+
     public AnimationPlayerDriver(AnimationPlayer player, IReadOnlyList<string>? moveNames)
     {
         _player = player;
@@ -137,6 +142,8 @@ public sealed partial class SceneVisual2D : Node2D, ICharacterVisual
 
     public Node Root => this;
 
+    public string? CurrentAnimation => _driver.Current;
+
     internal static SceneVisual2D? TryCreate(PackedScene scene, CharacterEntry? entry, double scale)
     {
         var instance = scene.Instantiate();
@@ -163,6 +170,8 @@ public sealed partial class SceneVisual3D : Node3D, ICharacterVisual
     private AnimationPlayerDriver _driver = null!;
 
     public Node Root => this;
+
+    public string? CurrentAnimation => _driver.Current;
 
     internal static SceneVisual3D? TryCreate(PackedScene scene, CharacterEntry? entry, double scale)
     {
@@ -193,6 +202,8 @@ internal sealed class SpriteStrips
     private readonly Dictionary<string, SpriteStrip> _strips = new(StringComparer.Ordinal);
     private readonly AnimationResolver _resolver;
     private string? _current;
+
+    public string? Current => _current;
 
     public SpriteStrips(CharacterEntry entry, SpriteSheetDef sheet)
     {
@@ -244,6 +255,8 @@ public sealed partial class SpriteVisual2D : Node2D, ICharacterVisual
 
     public Node Root => this;
 
+    public string? CurrentAnimation => _strips.Current;
+
     internal static SpriteVisual2D? TryCreate(CharacterEntry entry, CharacterVisual visual)
     {
         var sheet = visual.Sprites!;
@@ -285,6 +298,8 @@ public sealed partial class SpriteVisual3D : Node3D, ICharacterVisual
     private Sprite3D _sprite = null!;
 
     public Node Root => this;
+
+    public string? CurrentAnimation => _strips.Current;
 
     internal static SpriteVisual3D? TryCreate(CharacterEntry entry, CharacterVisual visual)
     {

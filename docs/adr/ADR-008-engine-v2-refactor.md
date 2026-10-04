@@ -74,6 +74,15 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
   estado, el frame del estado, la velocidad vertical y la frame data del movimiento; `PuppetBody2D` las dibuja con contorno y
   `PuppetBody3D` las convierte en cilindros y esferas. `PoseSmoother` suaviza las transiciones salvo en los ataques, que se
   dibujan exactos sobre su frame data. Solo lee la simulación.
+- **Pipeline de arte** (`docs/ART_PIPELINE.md`): el contenido es dato. `CharacterManifest` (`character.json`) describe un personaje (estadísticas,
+  movimientos vía `moves.fmt2` o `baseOn`, nombres de movimiento, colores, retrato, arte y sonidos); `CharacterPackLoader` lo convierte en un
+  `CharacterConfig` y `CharacterRoster.Register` lo hace jugable (también online: la huella cubre estadísticas y movimientos, **no** el arte).
+  `ContentLibrary` descubre paquetes en `res://` y `user://` (mods) y los valida; los rotos se saltan y se listan. El arte se reproduce
+  desde contadores de la simulación (`AnimationResolver` + `AnimationTiming`): tiras de sprites (`Sprite2D` / `Sprite3D`) o escenas con
+  `AnimationPlayer` controlado por `Seek`; los ataques se estiran sobre su frame data, así que el dibujo queda clavado a hitstop, pausa,
+  replay y rollback. Stages con capas de parallax y música; sonidos por clave con tono de respaldo; escenas de VFX de impacto; tema, fuente,
+  fondo, logo y skins del HUD. Herramientas: `PoseBaker` / `StageBaker` (paquetes de guía), `CharacterViewer` (frame a frame con cajas y
+  pivote, recarga con R) y `ContentCheck` (validador con código de salida, en el smoke de CI).
 - **Entrenamiento**: `TrainingDummy` (quieto, agachado, salto, guardia alta/baja reactiva alrededor de los frames activos, CPU) y
   `FrameAdvantageTracker` (ventaja en golpe/bloqueo medida desde el frame de contacto; `KD` si hay derribo) viven en el núcleo y
   tienen tests; `TrainingOverlay` muestra inputs en notación numpad, frame data y ventaja.
@@ -81,7 +90,7 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
   pausa la partida local; online no se puede pausar (la simulación sigue en el rival).
 
 ### Verificación
-- 320 tests + 18 de authoring (incluye el relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
+- 320 tests + 58 de authoring (manifiestos, cargador, roster, resolución y tiempos de animación, capas de stage; relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
   rollback de dos peers, replay y restauración; `tools/godot-smoke.sh` carga todas las escenas y
   `tools/godot-online-smoke.sh` juega una partida real entre dos procesos Godot por UDP (o con `RELAY=1`, a través de un relay)
   y compara hashes. Tests, certificación (hashes idénticos) y smokes también se ejecutaron en Ubuntu 24.04 (WSL).
@@ -90,8 +99,11 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
 ## Límites conocidos (no resueltos)
 - La simulación es de dos luchadores activos en un plano 2D: no hay combate 3D con esquiva lateral ni 4 jugadores.
 - Las plataformas son superficies de aterrizaje unidireccionales (sin colisión lateral).
-- No hay arte, animación ni audio final: sin escenas por personaje, los luchadores son una figura articulada procedural (poses por
-  estado, ataques que alcanzan la hitbox real) y el audio es sintético; está pensada como base legible, no como acabado.
+- No se incluye arte, animación ni audio final: el motor está preparado para recibirlos (ver `docs/ART_PIPELINE.md`), pero sin ellos los
+  luchadores son una figura articulada procedural (poses por estado, ataques que alcanzan la hitbox real; sin poses de intro ni victoria) y el
+  audio es sintético: una base legible, no un acabado. Las capas de stage en 3D son tarjetas y una escena con `AnimationPlayer` no puede
+  reproducir audio ni llamar a métodos desde sus pistas (se controla por `Seek`). Los efectos de sonido `.wav` solo se leen de `res://`
+  (importados); en `user://` hacen falta `.ogg` o `.mp3`.
 - El online es conexión directa o por relay con código de sala compartido a mano: no hay matchmaking/lobby, hole punching
   ni reconexión. El relay no se ha probado en Internet real (solo loopback, Windows y Linux).
 - Las rondas (mejor de 3) se gestionan en el director, no dentro de la simulación. Online funciona con una **línea de

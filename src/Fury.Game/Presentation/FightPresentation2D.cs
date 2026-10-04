@@ -26,6 +26,7 @@ public sealed partial class FightPresentation2D : FightPresentation
     private readonly List<Polygon2D> _stageShapes = [];
     private StageModule? _stageModule;
     private ShaderMaterial _backdropMaterial = null!;
+    private StageArtLayers2D? _artLayers;
     private float _shake;
     private float _zoom = 1f;
     private readonly RandomNumberGenerator _rng = new();
@@ -36,6 +37,7 @@ public sealed partial class FightPresentation2D : FightPresentation
         AddChild(_world);
 
         BuildBackdrop();
+        _artLayers = new StageArtLayers2D(_world, StageArt);
         for (int f = 0; f < 2; f++) _fighters[f] = new FighterShape2D(_world, f);
         for (int p = 0; p < _projectiles.Length; p++)
         {
@@ -91,7 +93,7 @@ public sealed partial class FightPresentation2D : FightPresentation
     {
         if (_sim == null) return;
         var state = _sim.State;
-        for (int f = 0; f < 2; f++) _fighters[f].Apply(_sim, f);
+        for (int f = 0; f < 2; f++) _fighters[f].Apply(_sim, f, SituationOf(_sim, f));
         SyncProjectiles();
         SyncStage();
 
@@ -160,6 +162,8 @@ public sealed partial class FightPresentation2D : FightPresentation
         _particles.Burst(pos + new Vector2(0, -_sim.Config.HurtboxHeight.ToFloat() * WorldProjection.PixelsPerUnit * 0.6f), kind);
     }
 
+    public override string? CurrentAnimation(int fighter) => _fighters[fighter].CurrentAnimation;
+
     public override void Shake(float strength)
     {
         if (GameSettings.ReduceMotion) return;
@@ -184,6 +188,7 @@ public sealed partial class FightPresentation2D : FightPresentation
 
         var target = new Vector2(mid, 270f);
         _camera.Position = _camera.Position.Lerp(target, 0.2f);
+        _artLayers?.Update(_camera.Position.X);
 
         if (_shake > 0.001f)
         {
@@ -226,7 +231,7 @@ public sealed partial class FightPresentation2D : FightPresentation
             Material = _backdropMaterial,
             Position = new Vector2(-2600, -400),
             Size = new Vector2(5200, WorldProjection.GroundScreenY + 400),
-            ZIndex = -10,
+            ZIndex = -100,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         _world.AddChild(backdrop);
@@ -238,6 +243,7 @@ public sealed partial class FightPresentation2D : FightPresentation
             Position = new Vector2(-2600, WorldProjection.GroundScreenY),
             Size = new Vector2(5200, 400),
             ZIndex = -5,
+            Visible = StageArt.DefaultFloor,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         _world.AddChild(ground);
@@ -249,6 +255,7 @@ public sealed partial class FightPresentation2D : FightPresentation
             Position = new Vector2(-2600, WorldProjection.GroundScreenY - 2),
             Size = new Vector2(5200, 3),
             ZIndex = -4,
+            Visible = StageArt.DefaultFloor,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         _world.AddChild(line);
@@ -292,7 +299,9 @@ public sealed partial class FightPresentation2D : FightPresentation
         /// <summary>The next pose snaps instead of blending (new round or rematch).</summary>
         public void Reset() => _smoother.Reset();
 
-        public void Apply(FightSimulation sim, int f)
+        public string? CurrentAnimation => _visual?.CurrentAnimation;
+
+        public void Apply(FightSimulation sim, int f, in FighterSituation situation)
         {
             var s = sim.State;
             int facing = s.GetFacing(f);
@@ -302,7 +311,7 @@ public sealed partial class FightPresentation2D : FightPresentation
 
             if (_visual != null)
             {
-                _visual.Apply(FighterSituation.From(sim, f)); // authored art decides its own look: no tint
+                _visual.Apply(situation); // authored art decides its own look: no tint
                 return;
             }
 

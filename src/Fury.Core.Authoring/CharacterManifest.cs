@@ -194,6 +194,7 @@ public sealed class CharacterManifest
         foreach (var (key, path) in Audio.Sfx)
         {
             if (!AnimationNames.IsValidName(key)) report.Error(where, $"audio.sfx key '{key}' must be lowercase letters, digits and '_'.");
+            else if (!AudioKeys.IsKnown(key, this)) report.Warn(where, $"audio.sfx key '{key}' is not a sound the engine asks for: it will never play.");
             CheckPath(report, where, $"audio.sfx.{key}", path, ".ogg", ".wav", ".mp3");
         }
     }

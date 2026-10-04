@@ -50,6 +50,9 @@ public static class ContentLibrary
     /// <summary>Also load folders whose name starts with '_' (the shipped template and test packs).</summary>
     public static bool IncludeTemplates { get; set; }
 
+    /// <summary>True when template folders count: set explicitly, or by <c>--fury-templates</c> on the command line.</summary>
+    public static bool ShowTemplates => IncludeTemplates || OS.GetCmdlineUserArgs().Contains("--fury-templates");
+
     /// <summary>Everything found by the last load: errors and warnings per pack.</summary>
     public static ContentReport Report { get; private set; } = new();
 
@@ -72,7 +75,6 @@ public static class ContentLibrary
     public static void Reload()
     {
         _loaded = true;
-        if (OS.GetCmdlineUserArgs().Contains("--fury-templates")) IncludeTemplates = true; // dev / CI: load the '_' template packs too
         AssetLoader.ClearCache();
         CharacterRoster.ClearRegistered();
         Entries.Clear();
@@ -83,7 +85,7 @@ public static class ContentLibrary
         {
             foreach (string name in SortedDirectories(root))
             {
-                if (name.StartsWith('_') && !IncludeTemplates) continue;
+                if (name.StartsWith('_') && !ShowTemplates) continue;
                 string folder = $"{root}/{name}";
                 string manifestPath = $"{folder}/{CharacterManifest.FileName}";
                 if (FileAccess.FileExists(manifestPath)) packs.Add((folder, FileAccess.GetFileAsString(manifestPath)));
@@ -107,6 +109,9 @@ public static class ContentLibrary
     }
 
     public static CharacterEntry? Find(string id) => Characters.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The portrait of a character (character select and HUD), or null when its pack has none.</summary>
+    public static Texture2D? Portrait(string id) => Find(id)?.PortraitPath is { } path ? AssetLoader.LoadTexture(path) : null;
 
     public static string DisplayName(string id) => Find(id)?.DisplayName ?? id.ToUpperInvariant();
 

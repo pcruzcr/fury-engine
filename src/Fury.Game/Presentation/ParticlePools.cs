@@ -39,6 +39,78 @@ internal static class ImpactStyle
 }
 
 /// <summary>
+/// Art overrides for the impact effects: a scene named <c>impact_hit</c>, <c>impact_block</c>, <c>impact_ko</c> or <c>impact_rage</c>
+/// (<c>_3d</c> suffix for the 3D views) in <c>res://vfx/</c> or <c>user://vfx/</c> replaces the built-in particle burst. The scene's
+/// root can be any <see cref="Node2D"/> / <see cref="Node3D"/>; on every impact all particle emitters under it restart and its
+/// <c>AnimatedSprite</c> / <c>AnimationPlayer</c> (clip <c>play</c>, else the first one) start. Animated art hides itself when done.
+/// </summary>
+internal static class ImpactScenes
+{
+    private static readonly string[] Roots = ["res://vfx", "user://vfx"];
+
+    public static string KeyOf(ImpactKind kind) => kind switch
+    {
+        ImpactKind.Block => "impact_block",
+        ImpactKind.Ko => "impact_ko",
+        ImpactKind.Rage => "impact_rage",
+        _ => "impact_hit",
+    };
+
+    public static PackedScene? Load(ImpactKind kind, bool threeD)
+    {
+        foreach (string root in Roots)
+        {
+            string path = $"{root}/{KeyOf(kind)}{(threeD ? "_3d" : "")}.tscn";
+            if (ResourceLoader.Exists(path)) return Content.AssetLoader.LoadScene(path);
+        }
+        return null;
+    }
+
+    /// <summary>Hides animated art when it finishes, so an idle pooled instance never lingers on screen.</summary>
+    public static void HideWhenFinished(Node root)
+    {
+        foreach (var child in root.GetChildren())
+        {
+            switch (child)
+            {
+                case AnimatedSprite2D sprite:
+                    sprite.AnimationFinished += () => sprite.Visible = false;
+                    break;
+                case AnimationPlayer player:
+                    player.AnimationFinished += _ => { if (root is CanvasItem item) item.Visible = false; else if (root is Node3D n3) n3.Visible = false; };
+                    break;
+            }
+            HideWhenFinished(child);
+        }
+    }
+
+    public static void Fire(Node root)
+    {
+        switch (root)
+        {
+            case CanvasItem item: item.Visible = true; break;
+            case Node3D node: node.Visible = true; break;
+        }
+
+        switch (root)
+        {
+            case CpuParticles2D p2: p2.Restart(); p2.Emitting = true; break;
+            case CpuParticles3D p3: p3.Restart(); p3.Emitting = true; break;
+            case GpuParticles2D g2: g2.Restart(); g2.Emitting = true; break;
+            case GpuParticles3D g3: g3.Restart(); g3.Emitting = true; break;
+            case AnimatedSprite2D sprite: sprite.Visible = true; sprite.Frame = 0; sprite.Play(); break;
+            case AnimationPlayer player:
+                string clip = player.HasAnimation("play") ? "play" : player.GetAnimationList().FirstOrDefault() ?? "";
+                if (clip.Length > 0) player.Play(clip);
+                break;
+        }
+
+        foreach (var child in root.GetChildren()) Fire(child);
+    }
+}
+
+
+/// <summary>
 /// Fixed pool of one-shot 2D particle bursts (CPU particles: identical on every renderer,
 /// including the Compatibility/mobile backend). Nothing is allocated while fighting.
 /// </summary>
@@ -46,7 +118,8 @@ public sealed class ParticlePool2D
 {
     private const int PerKind = 6;
 
-    private readonly CpuParticles2D[][] _pools = new CpuParticles2D[4][];
+    private readonly Node2D[][] _pools = new Node2D[4][];
+    private readonly bool[] _authored = new bool[4];
     private readonly int[] _next = new int[4];
 
     public ParticlePool2D(Node parent)
@@ -54,9 +127,21 @@ public sealed class ParticlePool2D
         foreach (ImpactKind kind in System.Enum.GetValues<ImpactKind>())
         {
             var color = ImpactStyle.ColorOf(kind);
-            var pool = new CpuParticles2D[PerKind];
+            var pool = new Node2D[PerKind];
+            var authored = ImpactScenes.Load(kind, threeD: false);
+            _authored[(int)kind] = authored != null;
             for (int i = 0; i < PerKind; i++)
             {
+                if (authored != null && authored.Instantiate() is Node2D art)
+                {
+                    art.ZIndex = 20;
+                    art.Visible = false;
+                    ImpactScenes.HideWhenFinished(art);
+                    pool[i] = art;
+                    parent.AddChild(art);
+                    continue;
+                }
+
                 pool[i] = new CpuParticles2D
                 {
                     Emitting = false,
@@ -88,8 +173,12 @@ public sealed class ParticlePool2D
         _next[(int)kind] = (i + 1) % pool.Length;
         var p = pool[i];
         p.Position = position;
-        p.Restart();
-        p.Emitting = true;
+        if (_authored[(int)kind]) ImpactScenes.Fire(p);
+        else if (p is CpuParticles2D particles)
+        {
+            particles.Restart();
+            particles.Emitting = true;
+        }
     }
 }
 
@@ -98,7 +187,8 @@ public sealed class ParticlePool3D
 {
     private const int PerKind = 6;
 
-    private readonly CpuParticles3D[][] _pools = new CpuParticles3D[4][];
+    private readonly Node3D[][] _pools = new Node3D[4][];
+    private readonly bool[] _authored = new bool[4];
     private readonly int[] _next = new int[4];
 
     public ParticlePool3D(Node parent)
@@ -113,9 +203,20 @@ public sealed class ParticlePool3D
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             };
             var mesh = new SphereMesh { Radius = 0.04f, Height = 0.08f, RadialSegments = 6, Rings = 3, Material = material };
-            var pool = new CpuParticles3D[PerKind];
+            var pool = new Node3D[PerKind];
+            var authored = ImpactScenes.Load(kind, threeD: true);
+            _authored[(int)kind] = authored != null;
             for (int i = 0; i < PerKind; i++)
             {
+                if (authored != null && authored.Instantiate() is Node3D art)
+                {
+                    art.Visible = false;
+                    ImpactScenes.HideWhenFinished(art);
+                    pool[i] = art;
+                    parent.AddChild(art);
+                    continue;
+                }
+
                 pool[i] = new CpuParticles3D
                 {
                     Emitting = false,
@@ -145,7 +246,11 @@ public sealed class ParticlePool3D
         _next[(int)kind] = (i + 1) % pool.Length;
         var p = pool[i];
         p.Position = position;
-        p.Restart();
-        p.Emitting = true;
+        if (_authored[(int)kind]) ImpactScenes.Fire(p);
+        else if (p is CpuParticles3D particles)
+        {
+            particles.Restart();
+            particles.Emitting = true;
+        }
     }
 }

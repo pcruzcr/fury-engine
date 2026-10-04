@@ -187,16 +187,8 @@ public partial class PoseBaker : Node
         Pose(sim, FighterStateId.Attack, stateFrame, crouch, air, move);
     }
 
-    private static void Pose(FightSimulation sim, int state, int stateFrame, bool crouch = false, bool air = false, int move = -1, Fp? vy = null)
-    {
-        var s = sim.State;
-        s.SetStateId(0, state);
-        s.SetStateFrame(0, stateFrame);
-        s.SetMoveIndex(0, move);
-        s.SetCrouching(0, crouch);
-        s.SetAirborne(0, air);
-        s.SetVy(0, vy ?? Fp.Zero);
-    }
+    private static void Pose(FightSimulation sim, int state, int stateFrame, bool crouch = false, bool air = false, int move = -1, Fp? vy = null) =>
+        PoseSetup.Apply(sim, 0, state, stateFrame, crouch, air, move, vy);
 
     private static Dictionary<string, string> ParseArgs()
     {

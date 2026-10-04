@@ -108,7 +108,7 @@ public sealed partial class FightPresentation3D : FightPresentation
     public override void Sync()
     {
         if (_sim == null) return;
-        for (int f = 0; f < 2; f++) _fighters[f].Apply(_sim, f);
+        for (int f = 0; f < 2; f++) _fighters[f].Apply(_sim, f, SituationOf(_sim, f));
 
         for (int f = 0; f < 2; f++)
         {
@@ -183,6 +183,8 @@ public sealed partial class FightPresentation3D : FightPresentation
         _particles.Burst(p + new Vector3(0, _sim.Config.HurtboxHeight.ToFloat() * WorldProjection.MetersPerUnit * 0.6f, 0.3f), kind);
     }
 
+    public override string? CurrentAnimation(int fighter) => _fighters[fighter].CurrentAnimation;
+
     public override void Shake(float strength)
     {
         if (GameSettings.ReduceMotion) return;
@@ -230,6 +232,9 @@ public sealed partial class FightPresentation3D : FightPresentation
 
     private void BuildStage()
     {
+        bool art = StageArtLayers3D.Build(_world, StageArt) > 0;
+        if (!StageArt.DefaultFloor) return;
+
         var floorMaterial = new StandardMaterial3D { AlbedoColor = new Color(0.16f, 0.13f, 0.18f), Roughness = 0.9f };
         _world.AddChild(new MeshInstance3D
         {
@@ -238,13 +243,16 @@ public sealed partial class FightPresentation3D : FightPresentation
             MaterialOverride = floorMaterial,
             Position = new Vector3(0, -0.1f, 0),
         });
-        _world.AddChild(new MeshInstance3D
+        if (!art) // art layers replace the plain back wall
         {
-            Name = "BackWall",
-            Mesh = new BoxMesh { Size = new Vector3(80f, 18f, 0.4f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.2f, 0.16f, 0.3f), Roughness = 1f },
-            Position = new Vector3(0, 8f, -5f),
-        });
+            _world.AddChild(new MeshInstance3D
+            {
+                Name = "BackWall",
+                Mesh = new BoxMesh { Size = new Vector3(80f, 18f, 0.4f) },
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.2f, 0.16f, 0.3f), Roughness = 1f },
+                Position = new Vector3(0, 8f, -5f),
+            });
+        }
         _world.AddChild(new MeshInstance3D
         {
             Name = "GroundLine",
@@ -293,7 +301,9 @@ public sealed partial class FightPresentation3D : FightPresentation
         /// <summary>The next pose snaps instead of blending (new round or rematch).</summary>
         public void Reset() => _smoother.Reset();
 
-        public void Apply(FightSimulation sim, int f)
+        public string? CurrentAnimation => _visual?.CurrentAnimation;
+
+        public void Apply(FightSimulation sim, int f, in FighterSituation situation)
         {
             var s = sim.State;
             int facing = s.GetFacing(f);
@@ -303,7 +313,7 @@ public sealed partial class FightPresentation3D : FightPresentation
 
             if (_visual != null)
             {
-                _visual.Apply(FighterSituation.From(sim, f));
+                _visual.Apply(situation);
                 return;
             }
 

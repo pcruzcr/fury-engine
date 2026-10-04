@@ -1,3 +1,4 @@
+using Fury.Core.Authoring;
 using Fury.Core.Sim;
 using Godot;
 
@@ -11,11 +12,46 @@ namespace Fury.Game.Presentation;
 /// </summary>
 public abstract partial class FightPresentation : Node
 {
+    private readonly PresentationPose[] _poseOverride = new PresentationPose[2];
+    private readonly long[] _poseOverrideStart = new long[2];
+
+    /// <summary>
+    /// Makes a fighter show its intro or victory animation instead of following the simulation (cosmetic moments with no sim state).
+    /// Timed with the physics tick counter, so it advances while the simulation is paused between rounds.
+    /// </summary>
+    public void SetPoseOverride(int fighter, PresentationPose pose)
+    {
+        if (_poseOverride[fighter] == pose) return;
+        _poseOverride[fighter] = pose;
+        _poseOverrideStart[fighter] = (long)Engine.GetPhysicsFrames();
+    }
+
+    public void ClearPoseOverrides()
+    {
+        SetPoseOverride(0, PresentationPose.None);
+        SetPoseOverride(1, PresentationPose.None);
+    }
+
+    /// <summary>What a fighter's art should show now: the simulation's situation, or the intro / victory moment.</summary>
+    protected FighterSituation SituationOf(FightSimulation sim, int fighter)
+    {
+        var pose = _poseOverride[fighter];
+        if (pose == PresentationPose.None) return FighterSituation.From(sim, fighter);
+
+        long physics = (long)Engine.GetPhysicsFrames();
+        return new FighterSituation(
+            pose == PresentationPose.Win ? AnimationStates.Win : AnimationStates.Intro,
+            -1, false, false, false, (int)(physics - _poseOverrideStart[fighter]), (int)physics, 0);
+    }
+
     /// <summary>Draw hurtboxes / hitboxes / pushboxes on top of the fighters.</summary>
     public bool ShowBoxes { get; set; }
 
     /// <summary>Background colour requested by the stage (null = the default look).</summary>
     public Color? StageBackground { get; set; }
+
+    /// <summary>Layers, floor choice and music of the stage (set before the view enters the tree).</summary>
+    public StageArtSet StageArt { get; set; } = StageArtSet.Default;
 
     /// <summary>Colour of a stage element by behaviour (shared by every view).</summary>
     protected static Color PlatformColor(PlatformSystem.PlatformType type) => type switch
@@ -39,4 +75,15 @@ public abstract partial class FightPresentation : Node
 
     /// <summary>Adds camera shake (0..1). Ignored when the player enabled "reduce motion".</summary>
     public abstract void Shake(float strength);
+
+    /// <summary>The animation a fighter's art is playing (the art viewer shows it); null for the procedural fighter.</summary>
+    public abstract string? CurrentAnimation(int fighter);
+}
+
+/// <summary>A cosmetic pose the director can force on a fighter.</summary>
+public enum PresentationPose
+{
+    None = 0,
+    Intro = 1,
+    Win = 2,
 }

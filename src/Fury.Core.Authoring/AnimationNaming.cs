@@ -86,6 +86,10 @@ public static class AnimationStates
     public const int Ko = 9;
     public const int Dash = 10;
     public const int Backdash = 11;
+
+    // Presentation-only moments with no simulation state (before a round starts, after it is won).
+    public const int Intro = 100;
+    public const int Win = 101;
 }
 
 /// <summary>
@@ -180,6 +184,12 @@ public sealed class AnimationResolver
             case AnimationStates.Backdash:
                 yield return AnimationNames.Backdash;
                 yield return AnimationNames.WalkBack;
+                break;
+            case AnimationStates.Intro:
+                yield return AnimationNames.Intro;
+                break;
+            case AnimationStates.Win:
+                yield return AnimationNames.Win;
                 break;
         }
 

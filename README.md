@@ -43,7 +43,7 @@ Abrir el proyecto en Godot: `godot --editor --path .` (la primera vez construye 
 ### Opciones de línea de comandos del juego (tras `--`)
 
 `--fury-demo` (IA vs IA), `--fury-view=0|1|2`, `--fury-frames=N --fury-capture=img.png` (captura y sale),
-`--fury-quit=N`, `--fury-stage=nombre` (stage de `user://stages`), `--fury-touch`, `--fury-training --fury-dummy=stand|crouch|jump|block|blocklow|cpu`,
+`--fury-quit=N`, `--fury-stage=nombre` (stage de `user://stages` o `res://stages`), `--fury-templates`, `--fury-opponent=id`, `--fury-touch`, `--fury-training --fury-dummy=stand|crouch|jump|block|blocklow|cpu`,
 `--fury-online=host|guest --fury-remote=IP --fury-port=N --fury-character=id --fury-seed=N`; para jugar por relay:
 `--fury-relay=host:puerto --fury-room=CODIGO` en lugar de `--fury-remote/--fury-port`.
 
@@ -82,14 +82,42 @@ ambos peers usan el stage por defecto, y los replays no guardan la geometría, a
 Sin arte, los luchadores se dibujan como una figura articulada procedural (`FighterPoser`): esqueleto con IK de dos huesos
 que se pone en pose según el estado de la simulación y, en los ataques, extiende el miembro hasta la hitbox real del movimiento
 (así se lee lo mismo que pasa en el frame data). Funciona en 2D y como mallas en 2.5D/3D, y se sustituye por la escena del
-personaje cuando existe `visual_2d.tscn` / `visual_3d.tscn`.
+personaje cuando aporta arte (ver más abajo).
+
+## Arte y contenido (sin tocar código)
+
+Personajes, stages, sonidos, música, efectos y el aspecto de los menús son **datos**: carpetas con un manifiesto JSON que el motor
+lee, valida y registra al arrancar. La guía completa para artistas y modders está en **`docs/ART_PIPELINE.md`**. Resumen:
+
+```bash
+# Generar un personaje listo para repintar (tiras de guía con los nombres, tamaños y pivote correctos + retrato + manifiesto)
+godot --path . res://scenes/tools/pose_baker.tscn -- --out=C:/arte/ryu --id=ryu --name=Ryu --color=#ff8800 --base=glen
+# Generar un stage con capas de guía (cielo, montañas, colinas, suelo, primer plano)
+godot --headless --path . res://scenes/tools/stage_baker.tscn -- --out=C:/arte/dojo --name=Dojo
+# Visor de arte: cualquier estado o movimiento frame a frame con hurtbox/hitbox/pivote encima (R recarga del disco)
+godot --path . res://scenes/tools/character_viewer.tscn
+# Validar todo el contenido (manifiestos, tamaños de imagen, escenas, sonidos); sale con 1 si hay errores
+GODOT=/ruta/a/godot tools/validate-content.sh
+```
+
+- **Personaje**: `characters/<id>/character.json` (+ `moves.fmt2` o `baseOn`, retrato, tiras de sprites o escenas con
+  `AnimationPlayer`, sonidos). Las estadísticas y los movimientos entran en la huella que comparan online y replays; el arte no,
+  así que cada jugador puede tener el suyo. Las animaciones se eligen con cadenas de respaldo (solo `idle` es obligatoria) y se
+  sincronizan con la frame data: los ataques se estiran sobre startup + active + recovery.
+- **Stage**: `.stage` con capas de parallax (`Depth`, `Repeat`, `Foreground`), música y suelo propio; plantilla en `stages/_template`.
+- **Sonido y música**: claves (`hit_light`, `whoosh_<movimiento>`, `voice_hurt`...) buscadas en el paquete del personaje, en
+  `res://audio/sfx` y en `user://audio/sfx`, con un tono sintético de respaldo; música por pista (`menu`, `fight`, `training`,
+  `victory`) o por stage, con crossfade. Volúmenes maestro / música / efectos en Opciones.
+- **VFX**: escenas `res://vfx/impact_hit|block|ko|rage(.tscn)` reemplazan las partículas de impacto.
+- **UI**: `res://ui/theme.tres` (incluye variaciones `HudHealthBar` / `HudMeterBar`), fuente, fondo de menú, logo y skins del HUD.
+- **Mods**: las mismas carpetas bajo `user://` se leen sin importar. Las carpetas que empiezan por `_` son plantillas y no se
+  cargan salvo con `--fury-templates` (tampoco se exportan).
 
 ## Crear un personaje
 
-Un personaje es una tabla de movimientos (`MoveEntry`, ver `GlenData`) más estadísticas. Cada movimiento declara su
-comando (botones + motion + postura), fotogramas, daño, stuns, nivel de golpe, rasgos (aéreo, launcher, throw,
-proyectil...), cancels y coste de medidor; el motor no necesita código nuevo. Para animación, añade
-`res://characters/<id>/visual_2d.tscn` o `visual_3d.tscn` con un `AnimationPlayer` cuyas animaciones se llamen
-`idle`, `walk_forward`, `walk_back`, `crouch`, `jump`, `attack`, `hit`, `block`, `knockdown`, `ko`.
+Un personaje son estadísticas + una tabla de movimientos (`MoveEntry`, ver `GlenData`): cada movimiento declara su comando
+(botones + motion + postura), fotogramas, daño, stuns, nivel de golpe, rasgos (aéreo, launcher, throw, proyectil...), cancels y
+coste de medidor; el motor no necesita código nuevo. Para añadir uno sin compilar: `character.json` con `"baseOn": "glen"`
+(copia los movimientos), edita la tabla con el editor de frame data y añade el arte (ver arriba).
 
 Detalles de las decisiones y de lo que **no** está resuelto: `docs/adr/ADR-008-engine-v2-refactor.md`.

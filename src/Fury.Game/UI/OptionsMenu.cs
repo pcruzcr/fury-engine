@@ -44,6 +44,8 @@ public partial class OptionsMenu : Control
             GameSettings.Save();
         };
         UiKit.Row(column, "Master volume", volume);
+        AddVolume(column, "Music volume", GameSettings.MusicVolume, v => GameSettings.MusicVolume = v);
+        AddVolume(column, "Effects volume", GameSettings.SfxVolume, v => GameSettings.SfxVolume = v);
 
         AddToggle(column, "Reduce motion (no camera shake)", GameSettings.ReduceMotion, v => GameSettings.ReduceMotion = v);
         AddToggle(column, "Reduce flashes (photosensitivity)", GameSettings.ReduceFlashes, v => GameSettings.ReduceFlashes = v);
@@ -54,6 +56,18 @@ public partial class OptionsMenu : Control
         UiKit.Button(column, "CONTROLS", () => UiKit.GoTo(this, GameSession.ControlsScene));
         var back = UiKit.Button(column, "BACK", () => UiKit.GoTo(this, GameSession.MainMenuScene));
         back.GrabFocus();
+    }
+
+    private static void AddVolume(Container parent, string label, float value, Action<float> set)
+    {
+        var slider = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.05, Value = value };
+        slider.ValueChanged += v =>
+        {
+            set((float)v);
+            GameSettings.ApplyAudio();
+            GameSettings.Save();
+        };
+        UiKit.Row(parent, label, slider);
     }
 
     private static void AddToggle(Container parent, string text, bool value, Action<bool> set)

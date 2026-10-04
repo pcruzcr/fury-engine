@@ -27,6 +27,7 @@ public static class GameSession
     public const string ReplaysScene = "res://scenes/menu/replays.tscn";
     public const string FrameDataEditorScene = "res://scenes/tools/frame_data_editor.tscn";
     public const string StageEditorScene = "res://scenes/tools/stage_editor.tscn";
+    public const string CharacterViewerScene = "res://scenes/tools/character_viewer.tscn";
 
     public const int DefaultNetPort = 7777;
 

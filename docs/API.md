@@ -80,11 +80,23 @@ Relay: `RelayServer(port, options)` (`Start()` / `Run(token)`, límites de salas
 
 `MoveTableDocument` (edición validada de tablas), `StageData` + `StageSerializer` (JSON sin reflexión), `CombatHeatmap`.
 
+**Contenido como datos** (sin Godot): `CharacterManifest` + `CharacterManifestSerializer` (`character.json`), `CharacterPackLoader.Load(json, readFile, where)` → `CharacterPack`
+(manifiesto + `CharacterConfig`) con un `ContentReport` de errores y avisos, `CharacterRoster.Register / Unregister / ClearRegistered / Contains`,
+`AnimationNames` (vocabulario), `AnimationResolver` (estado → animación con cadenas de respaldo, con caché), `AnimationTiming` (frame o tiempo
+desde contadores de la simulación), `AudioKeys` (claves de sonido), `ContentChecks` (tamaños de tira, retrato y clips) y `StageData` con
+capas (`BackgroundLayer`), música y suelo propio.
+
 ## Fury.Game (Godot)
 
 - `FightDirector` — flujo de la sesión (intro, rondas, modos). `GameSession`, `GameSettings`, `InputAdapter`.
+- `Content/` — `ContentLibrary` (escanea `res://characters` y `user://characters`, registra los paquetes, informa del resto), `CharacterEntry`,
+  `AssetLoader` (texturas, audio y escenas desde `res://` o `user://`, con caché), `UiTheme` (tema, fuente, fondos y skins del HUD).
 - `Presentation/` — `FightPresentation` (2D / 2.5D / 3D), `FighterPoser` + `PuppetBody2D/3D` (luchador procedural), `TrainingOverlay`, `WorldProjection`, `Hud`, `AudioManager`, `ParticlePool2D/3D`,
   `FightEventQueue` (tracer).
+  `CharacterVisuals` (sprites en tiras, escenas con `AnimationPlayer` controladas por `Seek`, legado `visual_2d/3d.tscn`), `StageArt` (capas con
+  parallax en 2D y tarjetas en 3D), `Jukebox` (música entre escenas), `AudioManager` (claves de sonido por personaje con tono de respaldo).
+- `Tools/` — `PoseBaker` y `StageBaker` (generan paquetes listos para repintar), `CharacterViewer` (visor frame a frame con cajas y pivote),
+  `ContentCheck` (validador con código de salida), editores de frame data y de stages.
 - `Net/OnlineMatch` (directo o relay), `InputBindings` (controles reasignables), `Stages/StageLoader` (documento → `StageModule`),
   `UI/*` (menús, controles, pausa, táctil), `Tools/*` (editores de frame data y stages).
 

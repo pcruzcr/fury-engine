@@ -27,9 +27,51 @@ public partial class ContentCheck : Node
             CheckFiles(entry, entry.Manifest, report);
         }
 
+        int checkedStages = 0;
+        foreach (string name in Stages.StageLoader.List())
+        {
+            checkedStages++;
+            CheckStage(name, report);
+        }
+
         foreach (var issue in report.Issues) GD.Print(issue.ToString());
-        GD.Print($"{checkedPacks} content pack(s) checked: {report.ErrorCount} error(s), {report.WarningCount} warning(s).");
+        GD.Print($"{checkedPacks} character pack(s) and {checkedStages} stage(s) checked: {report.ErrorCount} error(s), {report.WarningCount} warning(s).");
         GetTree().Quit(report.HasErrors ? 1 : 0);
+    }
+
+    private static void CheckStage(string name, ContentReport report)
+    {
+        string? path = Stages.StageLoader.Find(name);
+        if (path == null) return;
+        string folder = path[..path.LastIndexOf('/')];
+        string where = $"stage '{name}' ({path})";
+
+        StageData stage;
+        try
+        {
+            stage = StageSerializer.FromJson(Godot.FileAccess.GetFileAsString(path));
+        }
+        catch (InvalidDataException e)
+        {
+            report.Error(where, e.Message);
+            return;
+        }
+
+        foreach (var layer in stage.Layers)
+        {
+            string at = $"{where} layer '{layer.Image}'";
+            var image = AssetLoader.LoadImageFile($"{folder}/{layer.Image}");
+            if (image == null)
+            {
+                report.Error(at, "image is missing or unreadable.");
+                continue;
+            }
+            if (layer.Repeat && image.GetWidth() < 128) report.Warn(at, $"a repeating layer only {image.GetWidth()} px wide tiles very often; use a wider image.");
+            if (!layer.Repeat && layer.Depth > 0 && image.GetWidth() < 1920) report.Warn(at, $"a non-repeating background layer only {image.GetWidth()} px wide may show its edges when the camera pans or zooms out.");
+        }
+
+        if (stage.Music.Length > 0 && AssetLoader.LoadAudio($"{folder}/{stage.Music}") == null) report.Error(where, $"music '{stage.Music}' is missing or unreadable.");
+        if (stage.Layers.Count == 0 && stage.DefaultFloor && !name.StartsWith('_')) report.Warn(where, "no art layers: the stage uses the plain default look.");
     }
 
     private static void CheckFiles(CharacterEntry entry, CharacterManifest manifest, ContentReport report)

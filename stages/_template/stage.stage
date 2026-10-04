@@ -1,0 +1,64 @@
+{
+  "Name": "Template",
+  "Width": 2400,
+  "Height": 900,
+  "Gravity": 1,
+  "BackgroundColor": {
+    "R": 0.08,
+    "G": 0.06,
+    "B": 0.16,
+    "A": 1
+  },
+  "Platforms": [],
+  "Hazards": [],
+  "Layers": [
+    {
+      "Image": "sky.png",
+      "Depth": 1,
+      "OffsetX": 0,
+      "OffsetY": 0,
+      "Scale": 1,
+      "Repeat": true,
+      "Foreground": false
+    },
+    {
+      "Image": "mountains.png",
+      "Depth": 0.75,
+      "OffsetX": 0,
+      "OffsetY": 60,
+      "Scale": 1,
+      "Repeat": true,
+      "Foreground": false
+    },
+    {
+      "Image": "hills.png",
+      "Depth": 0.4,
+      "OffsetX": 0,
+      "OffsetY": 0,
+      "Scale": 1,
+      "Repeat": true,
+      "Foreground": false
+    },
+    {
+      "Image": "floor.png",
+      "Depth": 0,
+      "OffsetX": 0,
+      "OffsetY": -110,
+      "Scale": 1,
+      "Repeat": true,
+      "Foreground": false
+    },
+    {
+      "Image": "foreground.png",
+      "Depth": 0,
+      "OffsetX": 0,
+      "OffsetY": -60,
+      "Scale": 1,
+      "Repeat": true,
+      "Foreground": true
+    }
+  ],
+  "Music": "",
+  "DefaultFloor": false,
+  "PixelArt": false
+}

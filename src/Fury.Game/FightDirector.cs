@@ -1,4 +1,6 @@
+using Fury.Core.Authoring;
 using Fury.Core.Data;
+using Fury.Game.Content;
 using Fury.Core.Net;
 using Fury.Core.Replay;
 using Fury.Core.Sim;
@@ -70,6 +72,7 @@ public sealed partial class FightDirector : Node
     public override void _Ready()
     {
         GameSettings.ApplyAudio();
+        UiTheme.Apply(this);
         Tools.CharacterMods.LoadAll();
         InputBindings.Load();
         ParseUserArgs();
@@ -110,9 +113,31 @@ public sealed partial class FightDirector : Node
                 StartRound();
                 break;
         }
+
+        StartMusic();
     }
 
     public override void _ExitTree() => _online?.Dispose();
+
+    /// <summary>The character entry (names, art, sounds) of a fighter slot.</summary>
+    private CharacterEntry? EntryOf(int fighter) => Content.ContentLibrary.Find(_sim.Data(fighter).Id);
+
+    /// <summary>Stage music when the stage ships some, else the training or fight track; silence when no track exists.</summary>
+    private void StartMusic()
+    {
+        string? stageMusic = _stage?.Art.MusicPath;
+        string key = GameSession.Mode == GameMode.Training ? "training" : "fight";
+        Jukebox.Play(this, stageMusic ?? key, fallbackKey: "fight", silenceIfMissing: true);
+    }
+
+    private void ShowChampion(int winner)
+    {
+        _hud.ShowBanner($"{WinnerName(winner)}\nPress ENTER", 0f);
+        if (winner < 0) return;
+        _audio.Play(Sfx.Win, who: EntryOf(winner));
+        _audio.PlayCharacter(EntryOf(winner), "voice_win");
+        Jukebox.Play(this, "victory");
+    }
 
     // ------------------------------------------------------------------ dev / CI smoke
 
@@ -202,6 +227,7 @@ public sealed partial class FightDirector : Node
         _view = mode == ViewMode.Flat2D ? new FightPresentation2D() : new FightPresentation3D { Cinematic = mode == ViewMode.Cinematic3D };
         _view.ShowBoxes = GameSettings.ShowHitboxes || GameSession.Mode is GameMode.Training or GameMode.Replay;
         _view.StageBackground = _stage?.Background;
+        _view.StageArt = _stage?.Art ?? StageArtSet.Default;
         AddChild(_view);
         MoveChild(_view, 0); // behind the HUD
         if (_sim != null) _view.Bind(_sim);
@@ -214,8 +240,8 @@ public sealed partial class FightDirector : Node
     private void LoadStage()
     {
         if (GameSession.Mode is not (GameMode.Arcade or GameMode.Versus or GameMode.Training) || GameSettings.StageName.Length == 0) return;
-        var data = Stages.StageLoader.TryLoad(GameSettings.StageName);
-        if (data != null) _stage = Stages.StageLoader.Build(data, FightConfig.Default());
+        var loaded = Stages.StageLoader.TryLoad(GameSettings.StageName);
+        if (loaded != null) _stage = Stages.StageLoader.Build(loaded, FightConfig.Default());
     }
 
     private FightConfig BuildConfig()
@@ -235,7 +261,7 @@ public sealed partial class FightDirector : Node
         _advantage?.Reset();
         _trainingOverlay?.Reset();
         _view.Bind(_sim);
-        _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), cfg.MaxHealth);
+        _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), cfg.MaxHealth, Content.ContentLibrary.Portrait(_p1.Id), Content.ContentLibrary.Portrait(_p2.Id));
         _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
 
         // Replays do not carry the stage geometry, so fights on a custom stage are not recorded.
@@ -274,7 +300,7 @@ public sealed partial class FightDirector : Node
 
             _sim = new FightSimulation(_p1, _p2, cfg, _events);
             _view.Bind(_sim);
-            _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), cfg.MaxHealth);
+            _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), cfg.MaxHealth, Content.ContentLibrary.Portrait(_p1.Id), Content.ContentLibrary.Portrait(_p2.Id));
             EnterPhase(Phase.Fighting);
             _hud.ShowBanner("REPLAY  ·  SPACE pause  ·  → step", 2.5f);
         }
@@ -294,6 +320,18 @@ public sealed partial class FightDirector : Node
     {
         _phase = phase;
         _phaseFrame = 0;
+
+        // Cosmetic poses: both fighters show their intro before a round, nothing special once it is on.
+        if (_view == null) return;
+        if (phase == Phase.Intro)
+        {
+            _view.SetPoseOverride(0, PresentationPose.Intro);
+            _view.SetPoseOverride(1, PresentationPose.Intro);
+        }
+        else if (phase == Phase.Fighting)
+        {
+            _view.ClearPoseOverrides();
+        }
     }
 
     // ------------------------------------------------------------------ simulation loop
@@ -318,9 +356,11 @@ public sealed partial class FightDirector : Node
                 return;
             case Phase.RoundOver:
                 TickRoundOver();
+                _view.Sync(); // the winner's victory animation keeps running while the simulation is held
                 return;
             case Phase.MatchOver:
                 _online?.Session?.Pump(); // the peer may still need our last inputs
+                _view.Sync();
                 return;
         }
     }
@@ -339,7 +379,7 @@ public sealed partial class FightDirector : Node
             _p1 = _sim.Data(0);
             _p2 = _sim.Data(1);
             _view.Bind(_sim);
-            _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), _sim.Config.MaxHealth);
+            _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), _sim.Config.MaxHealth, Content.ContentLibrary.Portrait(_p1.Id), Content.ContentLibrary.Portrait(_p2.Id));
             EnterPhase(Phase.Fighting);
             _hud.ShowBanner("FIGHT!", 0.8f);
             _audio.Play(Sfx.RoundStart);
@@ -415,27 +455,45 @@ public sealed partial class FightDirector : Node
             switch (e.Id)
             {
                 case SimEventId.AttackHit:
-                    e.Unpack(out _, out int defender, out int damage);
+                    e.Unpack(out int attacker, out int defender, out int damage);
                     _view.SpawnImpact(defender, ImpactKind.Hit);
                     _view.Shake(Mathf.Clamp(damage / 160f, 0.15f, 0.8f));
-                    _audio.PlayHit(damage);
+                    _audio.PlayHit(damage, EntryOf(attacker));
+                    _audio.PlayCharacter(EntryOf(defender), "voice_hurt");
                     if (damage >= 100) _hud.Flash(new Color(1f, 0.9f, 0.6f), 0.25f);
                     break;
                 case SimEventId.AttackBlocked:
                     e.Unpack(out _, out int blocker, out _);
                     _view.SpawnImpact(blocker, ImpactKind.Block);
                     _view.Shake(0.1f);
-                    _audio.Play(Sfx.Block);
+                    _audio.Play(Sfx.Block, who: EntryOf(blocker));
+                    break;
+                case SimEventId.MoveStarted:
+                case SimEventId.Cancel:
+                    e.Unpack(out int mover, out int moveIndex, out _);
+                    PlayMoveSounds(mover, moveIndex);
+                    break;
+                case SimEventId.FighterJumped:
+                    _audio.Play(Sfx.Jump, volumeDb: -6f, who: EntryOf((int)e.Payload & 1));
+                    break;
+                case SimEventId.Dash:
+                    e.Unpack(out int dasher, out _, out _);
+                    _audio.Play(Sfx.Dash, volumeDb: -6f, who: EntryOf(dasher));
+                    break;
+                case SimEventId.ProjectileSpawned:
+                    e.Unpack(out int caster, out _, out _);
+                    _audio.Play(Sfx.Projectile, who: EntryOf(caster));
                     break;
                 case SimEventId.RageUnlocked:
                     _view.SpawnImpact((int)e.Payload, ImpactKind.Rage);
                     _audio.Play(Sfx.Rage);
                     break;
                 case SimEventId.Throw:
-                    e.Unpack(out _, out int grabbed, out int throwDamage);
+                    e.Unpack(out int thrower, out int grabbed, out int throwDamage);
                     _view.SpawnImpact(grabbed, ImpactKind.Hit);
                     _view.Shake(0.5f);
-                    _audio.PlayHit(Math.Max(throwDamage, 100));
+                    _audio.PlayHit(Math.Max(throwDamage, 100), EntryOf(thrower));
+                    _audio.PlayCharacter(EntryOf(grabbed), "voice_hurt");
                     break;
                 case SimEventId.ThrowTeched:
                     e.Unpack(out int techA, out int techB, out _);
@@ -451,6 +509,15 @@ public sealed partial class FightDirector : Node
                     break;
             }
         }
+    }
+
+    /// <summary>The swish and the voice line of a move that just started, in the mover's own sounds when its pack has them.</summary>
+    private void PlayMoveSounds(int fighter, int moveIndex)
+    {
+        var entry = EntryOf(fighter);
+        string name = AnimationNames.MoveName(entry?.Manifest?.MoveNames, moveIndex);
+        if (!_audio.PlayCharacter(entry, AudioKeys.MovePrefixWhoosh + name, -4f)) _audio.Play(Sfx.Whoosh, pitch: 1.2f - (moveIndex % 4 * 0.1f), volumeDb: -8f, who: entry);
+        _audio.PlayCharacter(entry, AudioKeys.MovePrefixVoice + name);
     }
 
     private void UpdateHud()
@@ -477,6 +544,8 @@ public sealed partial class FightDirector : Node
     {
         int winner = _sim.State.Winner;
         _audio.Play(Sfx.Ko);
+        if (winner >= 0) _audio.PlayCharacter(EntryOf(1 - winner), "voice_ko");
+        if (winner >= 0) _view.SetPoseOverride(winner, PresentationPose.Win);
         _view.SpawnImpact(winner == 0 ? 1 : 0, ImpactKind.Ko);
         _view.Shake(0.9f);
 
@@ -492,7 +561,7 @@ public sealed partial class FightDirector : Node
         if (_replay != null || GameSession.Mode == GameMode.Training)
         {
             EnterPhase(Phase.MatchOver);
-            if (_replay == null && GameSession.Mode != GameMode.Training) _hud.ShowBanner($"{WinnerName(winner)}\nPress ENTER", 0f);
+            if (_replay == null && GameSession.Mode != GameMode.Training) ShowChampion(winner);
             return;
         }
 
@@ -538,7 +607,7 @@ public sealed partial class FightDirector : Node
         {
             int champion = _wins[0] == _wins[1] ? -1 : _wins[0] > _wins[1] ? 0 : 1;
             EnterPhase(Phase.MatchOver);
-            _hud.ShowBanner($"{WinnerName(champion)}\nPress ENTER", 0f);
+            ShowChampion(champion);
             return;
         }
 
@@ -546,7 +615,7 @@ public sealed partial class FightDirector : Node
         _events.Clear();
         _sim = _online.BeginNextRound(target);
         _view.Bind(_sim);
-        _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), _sim.Config.MaxHealth);
+        _hud.Setup(Content.ContentLibrary.DisplayName(_p1.Id), Content.ContentLibrary.DisplayName(_p2.Id), _sim.Config.MaxHealth, Content.ContentLibrary.Portrait(_p1.Id), Content.ContentLibrary.Portrait(_p2.Id));
         _hud.SetRoundWins(_wins[0], _wins[1], RoundsToWin);
         _hud.ShowBanner($"ROUND {_round}", 1.0f);
         _audio.Play(Sfx.RoundStart);
@@ -575,7 +644,7 @@ public sealed partial class FightDirector : Node
         {
             int winner = _wins[0] == _wins[1] ? -1 : _wins[0] > _wins[1] ? 0 : 1;
             EnterPhase(Phase.MatchOver);
-            _hud.ShowBanner($"{WinnerName(winner)}\nPress ENTER", 0f);
+            ShowChampion(winner);
         }
         else
         {

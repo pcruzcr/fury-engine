@@ -356,3 +356,41 @@ public class ContentPackTests
         Assert.False(AnimationNames.DefaultLoop("stand_light"));
     }
 }
+
+/// <summary>Sound keys a pack may override.</summary>
+public class AudioKeyTests
+{
+    [Fact]
+    public void KnownKeys_AreGlobalVoicesAndPerMoveNames()
+    {
+        var manifest = CharacterManifestSerializer.FromJson("""{ "id": "voiced", "baseOn": "glen", "moveNames": ["jab"] }""");
+
+        Assert.True(AudioKeys.IsKnown("hit_light", manifest));
+        Assert.True(AudioKeys.IsKnown("voice_hurt", manifest));
+        Assert.True(AudioKeys.IsKnown("voice_jab", manifest));
+        Assert.True(AudioKeys.IsKnown("whoosh_jab", manifest));
+        Assert.True(AudioKeys.IsKnown("voice_special", manifest));   // a canonical slot name
+        Assert.True(AudioKeys.IsKnown("whoosh_move_9", manifest));
+
+        Assert.False(AudioKeys.IsKnown("hit_ligth", manifest));      // typo
+        Assert.False(AudioKeys.IsKnown("voice_nonsense", manifest));
+        Assert.False(AudioKeys.IsKnown("", manifest));
+    }
+}
+
+public class PresentationPoseTests
+{
+    [Fact]
+    public void IntroAndWin_ArePlayedWhenTheCharacterHasThem_AndFallBackToIdle()
+    {
+        var all = new AnimationResolver(null, _ => true);
+        Assert.Equal("intro", all.Resolve(AnimationStates.Intro, -1, false, false, false));
+        Assert.Equal("win", all.Resolve(AnimationStates.Win, -1, false, false, false));
+
+        var onlyIdle = new AnimationResolver(null, name => name == "idle");
+        Assert.Equal("idle", onlyIdle.Resolve(AnimationStates.Intro, -1, false, false, false));
+        Assert.Equal("idle", onlyIdle.Resolve(AnimationStates.Win, -1, false, false, false));
+        Assert.True(AnimationNames.DefaultLoop("win"));
+        Assert.False(AnimationNames.DefaultLoop("intro"));
+    }
+}

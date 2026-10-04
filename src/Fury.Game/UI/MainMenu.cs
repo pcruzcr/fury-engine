@@ -9,11 +9,15 @@ public partial class MainMenu : Control
     {
         GameSettings.Load();
         GameSettings.ApplyAudio();
+        Content.UiTheme.Apply(this);
         Fury.Game.Tools.CharacterMods.LoadAll();
         InputBindings.Load();
+        Presentation.Jukebox.Play(this, "menu", silenceIfMissing: true);
 
         var column = UiKit.CenterColumn(this);
-        UiKit.Title(column, "DUAL FURY", 72);
+        var logo = Content.UiTheme.Texture("logo.png");
+        if (logo != null) column.AddChild(new TextureRect { Texture = logo, ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, CustomMinimumSize = new Vector2(0, 160) });
+        else UiKit.Title(column, "DUAL FURY", 72);
         UiKit.Text(column, "Fury Engine", 20);
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 16) });
 
@@ -27,6 +31,7 @@ public partial class MainMenu : Control
         {
             UiKit.Button(column, "FRAME DATA EDITOR", () => UiKit.GoTo(this, GameSession.FrameDataEditorScene), 18);
             UiKit.Button(column, "STAGE EDITOR", () => UiKit.GoTo(this, GameSession.StageEditorScene), 18);
+            UiKit.Button(column, "ART VIEWER", () => UiKit.GoTo(this, GameSession.CharacterViewerScene), 18);
         }
         if (!OS.HasFeature("web") && !OS.HasFeature("mobile")) UiKit.Button(column, "QUIT", () => GetTree().Quit());
 

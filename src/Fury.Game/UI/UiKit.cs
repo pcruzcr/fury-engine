@@ -10,7 +10,16 @@ internal static class UiKit
     /// <summary>Full-screen background plus a centered vertical column; returns the column.</summary>
     public static VBoxContainer CenterColumn(Control host, int separation = 12)
     {
-        var background = new ColorRect { Color = Background, MouseFilter = Control.MouseFilterEnum.Ignore };
+        Control background;
+        var picture = Content.UiTheme.Texture("menu_background.png");
+        if (picture != null)
+        {
+            background = new TextureRect { Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, MouseFilter = Control.MouseFilterEnum.Ignore };
+        }
+        else
+        {
+            background = new ColorRect { Color = Background, MouseFilter = Control.MouseFilterEnum.Ignore };
+        }
         background.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         host.AddChild(background);
 

@@ -45,6 +45,12 @@ public static class GameSettings
     /// <summary>Master volume, linear 0..1.</summary>
     public static float MasterVolume { get; set; } = 0.8f;
 
+    /// <summary>Music volume (the Music bus), linear 0..1.</summary>
+    public static float MusicVolume { get; set; } = 0.7f;
+
+    /// <summary>Sound effects and voices volume (the Sfx bus), linear 0..1.</summary>
+    public static float SfxVolume { get; set; } = 1f;
+
     public static void Load()
     {
         var cfg = new ConfigFile();
@@ -58,6 +64,8 @@ public static class GameSettings
         ShowHitboxes = (bool)cfg.GetValue(Section, "hitboxes", ShowHitboxes);
         StageName = cfg.GetValue(Section, "stage", "").AsString();
         MasterVolume = Mathf.Clamp((float)cfg.GetValue(Section, "master_volume", MasterVolume), 0f, 1f);
+        MusicVolume = Mathf.Clamp((float)cfg.GetValue(Section, "music_volume", MusicVolume), 0f, 1f);
+        SfxVolume = Mathf.Clamp((float)cfg.GetValue(Section, "sfx_volume", SfxVolume), 0f, 1f);
     }
 
     public static void Save()
@@ -70,12 +78,30 @@ public static class GameSettings
         cfg.SetValue(Section, "hitboxes", ShowHitboxes);
         cfg.SetValue(Section, "stage", StageName);
         cfg.SetValue(Section, "master_volume", MasterVolume);
+        cfg.SetValue(Section, "music_volume", MusicVolume);
+        cfg.SetValue(Section, "sfx_volume", SfxVolume);
         cfg.Save(Path);
     }
 
-    /// <summary>Applies the audio setting to the engine's master bus.</summary>
+    public const string MusicBus = "Music";
+    public const string SfxBus = "Sfx";
+
+    /// <summary>Creates the Music and Sfx buses on first use and applies the three volumes (master, music, effects).</summary>
     public static void ApplyAudio()
     {
+        EnsureBus(MusicBus);
+        EnsureBus(SfxBus);
         AudioServer.SetBusVolumeDb(0, Mathf.LinearToDb(Mathf.Max(MasterVolume, 0.0001f)));
+        AudioServer.SetBusVolumeDb(AudioServer.GetBusIndex(MusicBus), Mathf.LinearToDb(Mathf.Max(MusicVolume, 0.0001f)));
+        AudioServer.SetBusVolumeDb(AudioServer.GetBusIndex(SfxBus), Mathf.LinearToDb(Mathf.Max(SfxVolume, 0.0001f)));
+    }
+
+    private static void EnsureBus(string name)
+    {
+        if (AudioServer.GetBusIndex(name) >= 0) return;
+        AudioServer.AddBus();
+        int index = AudioServer.BusCount - 1;
+        AudioServer.SetBusName(index, name);
+        AudioServer.SetBusSend(index, "Master");
     }
 }

@@ -42,6 +42,24 @@ public class StageData
 
     public List<HazardData> Hazards { get; set; } = new();
 
+    /// <summary>
+    /// Art layers, drawn back to front (and the <see cref="BackgroundLayer.Foreground"/> ones in front of the fighters).
+    /// Image paths are relative to the folder the stage file lives in.
+    /// </summary>
+    public List<BackgroundLayer> Layers { get; set; } = new();
+
+    /// <summary>Music file (relative to the stage folder, ogg or mp3); empty = the default fight music.</summary>
+    public string Music { get; set; } = "";
+
+    /// <summary>Draw the engine's plain dark floor and floor line. Turn off when a layer paints the floor.</summary>
+    public bool DefaultFloor { get; set; } = true;
+
+    /// <summary>Nearest-neighbour filtering for the layers (pixel art).</summary>
+    public bool PixelArt { get; set; }
+
+    /// <summary>A stage holds at most this many art layers.</summary>
+    public const int MaxLayers = 12;
+
     /// <summary>The simulation holds at most this many platforms plus hazards.</summary>
     public const int MaxElements = 8;
 
@@ -74,6 +92,16 @@ public class StageData
             Require(System.Math.Abs(h.X) <= 20000 && System.Math.Abs(h.Y) <= 20000, "Hazard position out of range.");
             Require(h.Damage is >= 0 and <= 500, "Hazard damage must be 0..500.");
         }
+        Require(Layers.Count <= MaxLayers, $"A stage holds at most {MaxLayers} art layers.");
+        Require(Music.Length == 0 || (ContentReport.IsSafeRelativePath(Music) && (Music.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) || Music.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase))), "Music must be a relative .ogg or .mp3 path inside the stage folder.");
+        foreach (var layer in Layers)
+        {
+            Require(ContentReport.IsSafeRelativePath(layer.Image) && (layer.Image.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || layer.Image.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) || layer.Image.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)), "A layer image must be a relative .png, .webp or .jpg path inside the stage folder.");
+            Require(double.IsFinite(layer.Depth) && layer.Depth is >= 0 and <= 1, "Layer depth must be 0..1.");
+            Require(double.IsFinite(layer.Scale) && layer.Scale is >= 0.05 and <= 16, "Layer scale must be 0.05..16.");
+            Require(System.Math.Abs(layer.OffsetX) <= 20000 && System.Math.Abs(layer.OffsetY) <= 20000, "Layer offset out of range.");
+        }
+
     }
 }
 
@@ -113,4 +141,28 @@ public class HazardData
     public int Height { get; set; }
 
     public int Damage { get; set; }
+}
+
+/// <summary>
+/// One art layer of a stage. The image is anchored by its bottom centre at (<see cref="OffsetX"/>, <see cref="OffsetY"/>) pixels from
+/// the floor centre (Y up). <see cref="Depth"/> says how far away it is: 0 moves with the fighters (no parallax), 1 stays fixed on
+/// screen like the sky; values in between slide slower than the camera.
+/// </summary>
+public class BackgroundLayer
+{
+    public string Image { get; set; } = "";
+
+    public double Depth { get; set; }
+
+    public double OffsetX { get; set; }
+
+    public double OffsetY { get; set; }
+
+    public double Scale { get; set; } = 1;
+
+    /// <summary>Tile the image sideways so it never ends.</summary>
+    public bool Repeat { get; set; }
+
+    /// <summary>Draw in front of the fighters (railings, foliage) instead of behind them.</summary>
+    public bool Foreground { get; set; }
 }
