@@ -18,6 +18,12 @@ window/size/viewport_height=540
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[debug]
+
+# Testers attach this log to bug reports: user://logs/godot.log (under app_userdata/Dual Fury/logs on Windows).
+file_logging/enable_file_logging=true
+file_logging/enable_file_logging.pc=true
+
 [input]
 
 p1_left={

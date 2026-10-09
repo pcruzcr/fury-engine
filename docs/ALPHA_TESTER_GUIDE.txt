@@ -1,0 +1,73 @@
+DUAL FURY - ALPHA @VERSION@  (Fury Engine)
+===========================================
+
+Gracias por probarlo. Es una alpha: la simulacion de combate, el netcode y las herramientas estan hechas, pero NO hay arte ni
+audio finales (los luchadores son figuras articuladas generadas por el motor, los sonidos son tonos sinteticos) y solo hay dos
+personajes, Glen y Kira. Lo que se quiere comprobar es que se juegue bien, que el online no se desincronice y que no falle nada.
+
+
+1. EJECUTAR
+-----------
+Windows 10/11 de 64 bits. No hay instalador: descomprime TODA la carpeta (el .exe necesita el .pck y la carpeta data_* a su lado) y
+ejecuta DualFury.exe. Si Windows SmartScreen avisa de que el editor es desconocido (el .exe no esta firmado), pulsa
+"Mas informacion" -> "Ejecutar de todas formas".
+
+
+2. CONTROLES (se pueden cambiar en Opciones -> Controles)
+---------------------------------------------------------
+Jugador 1: WASD mover / saltar / agacharse; J ligero, K medio, L fuerte; I especial; U agarre; O super; Y poder; H tag.
+Jugador 2: flechas; 1 2 3 ataques; 4, 5, 6, 7, 8 el resto de acciones.
+Mando: cruceta o stick izquierdo, A B X Y, gatillos/hombros.
+Movimientos especiales: por ejemplo, cuarto de circulo adelante (abajo, abajo-adelante, adelante) + boton.
+En combate: F1 muestra hitboxes, F2 cambia la vista (2D / 2.5D / 3D), F3 muestra datos de depuracion, Esc pausa (modos sin conexion),
+F11 pantalla completa.
+
+
+3. MODOS
+--------
+ARCADE      Rondas contra la CPU.
+VERSUS      Dos jugadores en el mismo equipo.
+TRAINING    Muneco configurable (F5 o menu de pausa), historial de inputs, frame data y ventaja en frames en vivo.
+ONLINE      Ver apartado 4.
+REPLAYS     Las partidas Arcade/Versus se guardan solas y se pueden rever o borrar.
+OPCIONES    Vista, idioma (ingles / espanol), stage, volumenes, pantalla completa, V-Sync, accesibilidad, controles.
+
+
+4. JUGAR ONLINE
+---------------
+Los dos jugadores deben tener LA MISMA VERSION (@VERSION@). Si las reglas o los personajes difieren, la partida se rechaza al conectar.
+Un jugador es el ANFITRION ("Soy el anfitrion") y el otro se une. Hay dos formas de conectar:
+
+ a) DIRECTO. El anfitrion abre el puerto UDP (por defecto 7777) en su router y le pasa su IP al otro. Ambos escriben la direccion del
+    rival y el mismo puerto.
+
+ b) CON RELAY (sin abrir puertos en casa). Alguien ejecuta el servidor relay en una maquina que los dos alcancen
+    (un VPS o un PC con el puerto UDP abierto):
+        relay-windows\Fury.Relay.exe 7777        (en Linux: relay-linux/Fury.Relay 7777)
+    Luego, en el juego: Online -> "Usar un servidor relay", direccion del relay, su puerto, y el MISMO codigo de sala en ambos
+    (el boton NUEVO genera uno; compartelo en privado). El relay solo reenvia paquetes ya autenticados: no puede leer ni alterar la partida.
+
+Pueden jugar entre si Windows y Linux (misma version). Si hay lag, sube el "Retraso de entrada" (2 va bien hasta ~60 ms de ping).
+F3 en combate muestra el estado de la red, el ping y los rollbacks.
+
+
+5. QUE PROBAR
+-------------
+- Que los movimientos respondan bien (input buffer, cancels, combos, proyectiles, agarres) y que el equilibrio entre Glen y Kira sea razonable.
+- Online: partidas largas (3 rondas) sin "Desync detected"; conexion directa y por relay; con ping alto y con perdida de paquetes.
+- Menus con teclado y mando; pausa; repeticiones; el editor y el visor de arte solo estan en las builds de desarrollo.
+
+
+6. DONDE SE GUARDAN LAS COSAS Y COMO REPORTAR UN FALLO
+-----------------------------------------------------
+Todo va a  %APPDATA%\Godot\app_userdata\Dual Fury\   (ajustes, controles, repeticiones, y las carpetas characters / stages / i18n para mods).
+Al reportar un fallo incluye: la version (@VERSION@), que hacias, y el archivo  logs\godot.log  de esa carpeta. Si es de online, las
+repeticiones de ambos lados y el mensaje que sale en pantalla (un "Desync detected" indica el frame en que se separaron).
+
+
+7. LIMITES CONOCIDOS DE ESTA ALPHA
+----------------------------------
+- Sin arte/audio finales; dos personajes; un solo stage (se pueden anadir stages y personajes como datos, ver docs/ART_PIPELINE.md).
+- El relay y la conexion online solo estan probados en local (Windows<->Windows, Linux<->Linux y Windows<->Linux sobre un mismo equipo),
+  no en Internet real. No hay matchmaking, lobby publico, hole punching ni reconexion.
+- Solo hay build para Windows. Linux y macOS tienen presets de exportacion pero no se han probado como juego exportado.
