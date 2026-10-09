@@ -23,12 +23,12 @@ public partial class MainMenu : Control
             return;
         }
 
-        var column = UiKit.CenterColumn(this);
+        var column = UiKit.CenterColumn(this, 8); // compact: seven buttons plus the title fit a 540 px window without scrolling
         var logo = Content.UiTheme.Texture("logo.png");
         if (logo != null) column.AddChild(new TextureRect { Texture = logo, ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, CustomMinimumSize = new Vector2(0, 160) });
-        else UiKit.Title(column, "DUAL FURY", 72);
+        else UiKit.Title(column, "DUAL FURY", 60);
         UiKit.Text(column, "Fury Engine", 20);
-        column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 16) });
+        column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
 
         var first = UiKit.Button(column, "ARCADE", () => Start(GameMode.Arcade));
         UiKit.Button(column, "VERSUS", () => Start(GameMode.Versus));

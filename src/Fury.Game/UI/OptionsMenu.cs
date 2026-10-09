@@ -61,6 +61,8 @@ public partial class OptionsMenu : Control
         AddVolume(column, "Music volume", GameSettings.MusicVolume, v => GameSettings.MusicVolume = v);
         AddVolume(column, "Effects volume", GameSettings.SfxVolume, v => GameSettings.SfxVolume = v);
 
+        AddToggle(column, "Fullscreen (F11)", GameSettings.Fullscreen, v => { GameSettings.Fullscreen = v; VideoSettings.Apply(this); });
+        AddToggle(column, "V-Sync", GameSettings.VSync, v => { GameSettings.VSync = v; VideoSettings.Apply(this); });
         AddToggle(column, "Reduce motion (no camera shake)", GameSettings.ReduceMotion, v => GameSettings.ReduceMotion = v);
         AddToggle(column, "Reduce flashes (photosensitivity)", GameSettings.ReduceFlashes, v => GameSettings.ReduceFlashes = v);
         AddToggle(column, "Show hitboxes", GameSettings.ShowHitboxes, v => GameSettings.ShowHitboxes = v);
@@ -68,8 +70,8 @@ public partial class OptionsMenu : Control
 
         UiKit.Text(column, "Every key and pad button can be remapped in CONTROLS.\nIn a fight: F1 hitboxes / F2 view / F3 debug / Esc pause", 16);
         UiKit.Button(column, "CONTROLS", () => UiKit.GoTo(this, GameSession.ControlsScene));
-        var back = UiKit.Button(column, "BACK", () => UiKit.GoTo(this, GameSession.MainMenuScene));
-        back.GrabFocus();
+        UiKit.Button(column, "BACK", () => UiKit.GoTo(this, GameSession.MainMenuScene));
+        view.GrabFocus(); // the first control: grabbing BACK would scroll the menu to its end before the player sees the top
     }
 
     private static void AddVolume(Container parent, string label, float value, Action<float> set)

@@ -45,6 +45,12 @@ public static class GameSettings
     /// <summary>Master volume, linear 0..1.</summary>
     public static float MasterVolume { get; set; } = 0.8f;
 
+    /// <summary>Borderless fullscreen (F11 toggles it from anywhere).</summary>
+    public static bool Fullscreen { get; set; }
+
+    /// <summary>Vertical sync: smoother motion, a little more input latency on slow displays.</summary>
+    public static bool VSync { get; set; } = true;
+
     /// <summary>Interface language: a locale code from <c>i18n/</c>, <c>"en"</c>, or empty to follow the system.</summary>
     public static string Language { get; set; } = "";
 
@@ -68,6 +74,8 @@ public static class GameSettings
         StageName = cfg.GetValue(Section, "stage", "").AsString();
         MasterVolume = Mathf.Clamp((float)cfg.GetValue(Section, "master_volume", MasterVolume), 0f, 1f);
         Language = cfg.GetValue(Section, "language", "").AsString();
+        Fullscreen = (bool)cfg.GetValue(Section, "fullscreen", Fullscreen);
+        VSync = (bool)cfg.GetValue(Section, "vsync", VSync);
         MusicVolume = Mathf.Clamp((float)cfg.GetValue(Section, "music_volume", MusicVolume), 0f, 1f);
         SfxVolume = Mathf.Clamp((float)cfg.GetValue(Section, "sfx_volume", SfxVolume), 0f, 1f);
     }
@@ -83,6 +91,8 @@ public static class GameSettings
         cfg.SetValue(Section, "stage", StageName);
         cfg.SetValue(Section, "master_volume", MasterVolume);
         cfg.SetValue(Section, "language", Language);
+        cfg.SetValue(Section, "fullscreen", Fullscreen);
+        cfg.SetValue(Section, "vsync", VSync);
         cfg.SetValue(Section, "music_volume", MusicVolume);
         cfg.SetValue(Section, "sfx_volume", SfxVolume);
         cfg.Save(Path);

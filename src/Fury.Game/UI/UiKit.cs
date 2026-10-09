@@ -11,6 +11,7 @@ internal static class UiKit
     public static VBoxContainer CenterColumn(Control host, int separation = 12)
     {
         Content.Localization.EnsureApplied();
+        VideoSettings.Apply(host);
         DevCapture.AttachIfRequested(host);
         Control background;
         var picture = Content.UiTheme.Texture("menu_background.png");
@@ -25,9 +26,18 @@ internal static class UiKit
         background.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         host.AddChild(background);
 
-        var center = new CenterContainer();
-        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        host.AddChild(center);
+        // A menu taller than the window (Options at 960x540, a long roster, a big font) scrolls instead of losing its bottom
+        // buttons; the scroll follows keyboard / gamepad focus. When it fits, the centre container keeps it centred.
+        var scroll = new ScrollContainer
+        {
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            FollowFocus = true,
+        };
+        scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        host.AddChild(scroll);
+
+        var center = new CenterContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        scroll.AddChild(center);
 
         var column = new VBoxContainer { CustomMinimumSize = new Vector2(360, 0) };
         column.AddThemeConstantOverride("separation", separation);

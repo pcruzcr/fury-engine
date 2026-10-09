@@ -73,6 +73,7 @@ public sealed partial class FightDirector : Node
     {
         GameSettings.ApplyAudio();
         Localization.Apply(GameSettings.Language);
+        VideoSettings.Apply(this);
         UiTheme.Apply(this);
         Tools.CharacterMods.LoadAll();
         InputBindings.Load();
