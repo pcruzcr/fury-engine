@@ -25,3 +25,10 @@ rollback real como objetivo de F2 y multiplataforma AOT-safe como restricción t
   se necesita recuperar datos (GDD v8, frame data de personajes).
 - Todo código nuevo nace bajo las reglas de pureza: sin Godot en Core, sin reflexión,
   sin float/double en hot path, presupuesto de alocaciones verificado en CI.
+
+## Actualización (2026-10-09)
+
+El respaldo `fighter_backup_20260914.tar.gz` contenía, además de la deuda descrita, **el ruleset del GDD v8.0** (energía EX/Resonancia/Rage,
+parry, clash, counter hit, escalado de daño, Command Normals, Glen con ~27 movimientos y Kira) con sus decisiones de diseño resueltas. La
+purga dejó al motor sin esas reglas. El diseño y el código de referencia se rescataron al repositorio
+(`docs/archive/legacy-v0.2-design/`, `archive-reference/legacy-core-v0.2/`); cómo se portan: ADR-011.

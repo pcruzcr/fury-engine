@@ -1,6 +1,6 @@
 # ADR-008 — Fury Engine v2: build structure, netcode, replays and data-driven simulation
 
-Fecha: 2026-10-02 · Estado: aceptado · Sustituye las afirmaciones no verificadas de `ENGINE-ROADMAP.md`
+Fecha: 2026-10-02 · Estado: aceptado · Sustituye las afirmaciones no verificadas de `docs/archive/dev-plan-2026-09/ENGINE-ROADMAP.md`
 
 ## Contexto
 
@@ -90,7 +90,7 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
   pausa la partida local; online no se puede pausar (la simulación sigue en el rival).
 
 ### Verificación
-- 320 tests + 66 de authoring (manifiestos, cargador, roster, resolución y tiempos de animación, capas de stage, idiomas; relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
+- 327 tests + 66 de authoring (manifiestos, cargador, roster, resolución y tiempos de animación, capas de stage, idiomas; relay: reenvío, salas, abusos, límites, handshake, partida completa); certificación headless contra hashes versionados (`cert/expected_hashes.txt`),
   rollback de dos peers, replay y restauración; `tools/godot-smoke.sh` carga todas las escenas y
   `tools/godot-online-smoke.sh` juega una partida real entre dos procesos Godot por UDP (o con `RELAY=1`, a través de un relay)
   y compara hashes. Tests, certificación (hashes idénticos) y smokes también se ejecutaron en Ubuntu 24.04 (WSL).
@@ -116,3 +116,9 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
 - Mods de personajes: el editor guarda `user://characters/<id>.fmt2` y el juego lo carga al arrancar
   (`CharacterRoster.SetMoveTableOverride`); las huellas de personaje hacen que dos peers con tablas distintas se rechacen.
 - Los jobs de CI de AOT y de Godot (`continue-on-error`) no se han podido ejecutar en un runner real.
+
+## Ver también
+
+Estado actual y distancia al GDD: `docs/STATUS.md`, `docs/GDD-TRACEABILITY.md`, `docs/ROADMAP.md`. Decisiones posteriores:
+ADR-009 (contenido como datos y regla de confianza de los mods), ADR-010 (transporte online y relay), ADR-011 (ruleset de Dual Fury,
+propuesto).

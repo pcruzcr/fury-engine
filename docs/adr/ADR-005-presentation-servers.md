@@ -29,3 +29,11 @@ sin estallidos perceptibles.
   monolítico del proyecto anterior.
 - El audio procedural (SfxSynth) se mantiene como generador de assets en runtime; los buses
   y tweens viven en `Fury.Game/Audio`.
+
+## Actualización (2026-10-09)
+
+**No se implementó como estaba escrito.** La presentación usa nodos y dibujo de Godot normales (`CanvasItem`, mallas); no hay bypass
+del SceneTree hacia `RenderingServer` ni shaders de cómputo, y el audio procedural vive en `Presentation/AudioManager` (no hay
+`Fury.Game/Audio` ni crossfade por corrección de rollback). **Se cumple la regla esencial**: la presentación solo lee la simulación, y
+la conversión Fp→float vive en un único punto (`WorldProjection`). Si el rendimiento en hardware modesto (Switch) lo exige, el bypass
+sigue siendo una vía de optimización, no una restricción.

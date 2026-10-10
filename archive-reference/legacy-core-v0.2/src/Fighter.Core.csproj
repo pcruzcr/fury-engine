@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Deterministic>true</Deterministic>
+    <!-- Beautiful-code enforcement (R1): every public member documented; warnings are errors.
+         CS1591 is intentionally NOT suppressed: undocumented public surface fails the build. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- White-box tests may exercise internal codec details (bounds checks, ring edges).
+       Production rule stands: tests never bypass public behavior for PASS claims. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Fighter.Core.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- Architecture guard (§19 Master Prompt): Fighter.Core must never depend on Godot. -->
+  <Target Name="ForbidGodotReference" BeforeTargets="BeforeBuild">
+    <Error Condition="'%(Reference.Identity)' == 'Godot'"
+           Text="Fighter.Core must not reference Godot.dll." />
+    <Error Condition="'%(PackageReference.Identity)' == 'Godot'"
+           Text="Fighter.Core must not reference any Godot package." />
+  </Target>
+
+</Project>

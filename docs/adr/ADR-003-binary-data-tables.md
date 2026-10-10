@@ -24,3 +24,10 @@ mata la iteración. Pero cargar JSON en runtime viola la estabilidad de bytes y 
 - Datos y código evolucionan en ciclos independientes.
 - El binario es trivialmente hasheable (xxHash64) → la versión de datos viaja en replays y
   sesiones de red para rechazar mezclas de versiones.
+
+## Actualización (2026-10-09)
+
+El formato vigente es **FMT2** (23 enteros por movimiento: hitstun, blockstun, rasgos, nivel de golpe, comando, categoría, cancelaciones,
+proyectiles…); FMT1 solo se lee. El punto 4 se matiza: el runtime también lee **JSON** (manifiestos de personaje, stages, idiomas) con
+serialización generada en compilación, sin reflexión (compatible con AOT). Lo que sigue prohibido es parsear texto para el **estado de
+combate**: las tablas de movimientos siguen siendo binarias, validadas y hasheadas. Ver ADR-009.

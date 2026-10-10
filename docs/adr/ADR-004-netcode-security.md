@@ -29,3 +29,10 @@ desbordado si se transmite el snapshot completo (esquema 5, ~1068 B/frame).
 - Overhead por paquete: +36 B (seq + MAC), compensado por deltas típicos de decenas de bytes.
 - La rotación SplitMix64→xoshiro256** queda cerrada: el sim usa xoshiro256** nativo con
   seeding SplitMix64 desde F0.
+
+## Actualización (2026-10-09)
+
+- El HKDF por sesión está **implementado** (`SessionCrypto`: ECDH P-256 + HKDF-SHA256, claves direccionales, token opcional).
+- El protocolo final transmite **inputs** (ventana redundante + ack + huella de estado cada 30 frames), no snapshots en delta;
+  `SnapshotDiffer` existe y se usa en pruebas y comprobaciones, no en la red. EX y Resonancia no viajan: ambos peers simulan.
+- En lugar de relays TURN/STUN hay un **relay UDP propio** y un transporte por canales: ver ADR-010.

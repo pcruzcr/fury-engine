@@ -448,7 +448,7 @@ public class NetplayTests
     [Fact]
     public void Udp_RequiresSessionKeys()
     {
-        Assert.Throws<ArgumentNullException>(() => new UdpTransport(0, null, 0, null!));
+        Assert.Throws<ArgumentNullException>(() => new UdpTransport(0, null!, 0, null!));
     }
 
     [Fact]
