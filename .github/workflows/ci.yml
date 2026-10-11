@@ -51,10 +51,9 @@ jobs:
         run: ./aot-out/cert
 
   # Godot integration: build with the editor's own pipeline, load every scene, and play a real
-  # two-process netplay match. Kept non-blocking until the Godot version/action pin is validated on the CI runner.
+  # two-process netplay match. Validated on the CI runner (Godot 4.7.2), so it is blocking.
   godot-smoke:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4

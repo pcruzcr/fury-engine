@@ -115,7 +115,7 @@ código, caminata del jugador 2 invertida, y una presentación sin escala ni eve
   dispositivo ni en una exportación Android/iOS real: C# en Godot no exporta a Web y esos presets necesitan sus toolchains.
 - Mods de personajes: el editor guarda `user://characters/<id>.fmt2` y el juego lo carga al arrancar
   (`CharacterRoster.SetMoveTableOverride`); las huellas de personaje hacen que dos peers con tablas distintas se rechacen.
-- Los jobs de CI de AOT y de Godot (`continue-on-error`) no se han podido ejecutar en un runner real.
+- Los jobs de CI (matriz Windows, Linux y macOS, AOT y Godot) se ejecutaron en runners reales de GitHub Actions el 2026-10-11 y pasan; el job de Godot es bloqueante.
 
 ## Ver también
 

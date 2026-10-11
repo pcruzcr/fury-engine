@@ -48,7 +48,7 @@ Dos cosas en un repositorio:
 - Windows↔Linux se probó en un solo PC (el Linux es WSL1 y comparte la red de Windows): demuestra el cálculo idéntico y el
   protocolo, no la latencia, los NAT ni la pérdida de paquetes reales (esos se simulan en tests con jitter y pérdida).
 - No hay verificación en ARM (Apple Silicon, Android, Switch), que el GDD marca como riesgo crítico.
-- macOS solo existe en la matriz de CI, que no se ha ejecutado en un runner real; el job de Godot en CI es `continue-on-error`.
+- La CI (Windows, Linux, macOS, AOT y Godot) pasa en runners reales de GitHub Actions desde el 2026-10-11; macOS corre en ARM pero solo cubre el núcleo, no el juego de Godot.
 - Ninguna persona ajena al desarrollo ha jugado el juego: la sensación de los controles y el equilibrio están sin validar.
 
 ## 4. Mapa de la documentación
